@@ -9,7 +9,6 @@ const pageSize = 12;
 let currentRequest = null;
 
 async function fetchDishes(tagFilter = '', search = '', append = false) {
-    // 取消之前的请求
     if (currentRequest) {
         currentRequest.abort();
     }
@@ -25,7 +24,6 @@ async function fetchDishes(tagFilter = '', search = '', append = false) {
     isLoading = true;
     showLoading(true);
 
-    // 创建新的请求控制器
     const controller = new AbortController();
     currentRequest = controller;
 
@@ -52,7 +50,6 @@ async function fetchDishes(tagFilter = '', search = '', append = false) {
 
         let newDishes = [];
         if (append) {
-            // 去重：避免重复加载相同的菜品
             const existingIds = new Set(allDishes.map(dish => dish.id));
             newDishes = dishes.filter(dish => !existingIds.has(dish.id));
             allDishes = [...allDishes, ...newDishes];
@@ -134,9 +131,7 @@ async function createDish(dishData) {
 
         if (!response.ok) throw new Error('创建菜品失败');
 
-        const result = await response.json();
         await fetchDishes();
-        return result;
     } catch (error) {
         console.error('Error creating dish:', error);
         throw error;
@@ -153,9 +148,7 @@ async function updateDish(dishId, dishData) {
 
         if (!response.ok) throw new Error('更新菜品失败');
 
-        const result = await response.json();
         await fetchDishes();
-        return result;
     } catch (error) {
         console.error('Error updating dish:', error);
         throw error;
@@ -170,9 +163,7 @@ async function deleteDish(dishId) {
 
         if (!response.ok) throw new Error('删除菜品失败');
 
-        const result = await response.json();
         await fetchDishes();
-        return result;
     } catch (error) {
         console.error('Error deleting dish:', error);
         throw error;
@@ -189,9 +180,7 @@ async function createTag(tagData) {
 
         if (!response.ok) throw new Error('创建标签失败');
 
-        const result = await response.json();
         await fetchTags();
-        return result;
     } catch (error) {
         console.error('Error creating tag:', error);
         throw error;
@@ -206,13 +195,19 @@ async function deleteTag(tagId) {
 
         if (!response.ok) throw new Error('删除标签失败');
 
-        const result = await response.json();
         await fetchTags();
-        return result;
     } catch (error) {
         console.error('Error deleting tag:', error);
         throw error;
     }
+}
+
+function getTagStyle(tagName, tagDetails) {
+    const tag = tagDetails.find(t => t.name === tagName.trim()) || allTags.find(t => t.name === tagName.trim());
+    return {
+        backgroundColor: tag?.background_color || '#999',
+        color: tag?.text_color || 'white'
+    };
 }
 
 function renderDishes(dishes, append = false, newDishes = []) {
@@ -224,102 +219,48 @@ function renderDishes(dishes, append = false, newDishes = []) {
         return;
     }
 
-    if (append) {
-        // 只插入新添加的菜品，而不是所有菜品
-        if (newDishes.length > 0) {
-            const newDishHTML = newDishes.map(dish => {
-                const tags = dish.tags ? dish.tags.split(',') : [];
-                const tagDetails = dish.tag_details || [];
-                const displayedTags = tags.slice(0, 2);
-                const moreTagsCount = tags.length - 2;
+    const generateDishHTML = (dish) => {
+        const tags = dish.tags ? dish.tags.split(',') : [];
+        const tagDetails = dish.tag_details || [];
+        const displayedTags = tags.slice(0, 2);
+        const moreTagsCount = tags.length - 2;
 
-                function getTagStyle(tagName) {
-                    const tag = tagDetails.find(t => t.name === tagName.trim()) || 
-                               allTags.find(t => t.name === tagName.trim());
-                    return {
-                        backgroundColor: tag?.background_color || '#999',
-                        color: tag?.text_color || 'white'
-                    };
-                }
-
-                return `
-                    <div class="dish-card" onclick="showDishDetail(${dish.id})" data-dish-id="${dish.id}">
-                        <div class="dish-image" style="background-color: #F2C76E;">
-                            ${dish.image ? `<img src="${dish.image}" alt="${dish.name}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">` : dish.name.charAt(0)}
-                            <div class="dish-actions">
-                                ${window.isAdminMode ? `
-                                    <button class="dish-action-btn" onclick="event.stopPropagation(); editDish(${dish.id})">
-                                        <img src="img/icon/编辑.png" alt="编辑" width="16" height="16">
-                                    </button>
-                                    <button class="dish-action-btn" onclick="event.stopPropagation(); removeDish(${dish.id})">
-                                        <img src="img/icon/删除.png" alt="删除" width="16" height="16">
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-                        <div class="dish-info">
-                            <div class="dish-name">${dish.name}</div>
-                            <div class="dish-price">¥${dish.price.toFixed(1)}</div>
-                            <div class="dish-desc">${dish.description || ''}</div>
-                            <div class="dish-tags">
-                                ${displayedTags.map(tag => {
-                                    const style = getTagStyle(tag);
-                                    return `<span class="dish-tag ${tag.trim()}" style="background-color: ${style.backgroundColor}; color: ${style.color};">${tag.trim()}</span>`;
-                                }).join('')}
-                                ${moreTagsCount > 0 ? `<span class="dish-tag more">+${moreTagsCount}</span>` : ''}
-                            </div>
-                        </div>
+        return `
+            <div class="dish-card" onclick="showDishDetail(${dish.id})" data-dish-id="${dish.id}">
+                <div class="dish-image" style="background-color: #F2C76E;">
+                    ${dish.image ? `<img src="${dish.image}" alt="${dish.name}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">` : dish.name.charAt(0)}
+                    <div class="dish-actions">
+                        ${window.isAdminMode ? `
+                            <button class="dish-action-btn" onclick="event.stopPropagation(); editDish(${dish.id})">
+                                <img src="img/icon/编辑.png" alt="编辑" width="16" height="16">
+                            </button>
+                            <button class="dish-action-btn" onclick="event.stopPropagation(); removeDish(${dish.id})">
+                                <img src="img/icon/删除.png" alt="删除" width="16" height="16">
+                            </button>
+                        ` : ''}
                     </div>
-                `;
-            }).join('');
-            menuGrid.insertAdjacentHTML('beforeend', newDishHTML);
-        }
-    } else {
-        const dishHTML = dishes.map(dish => {
-            const tags = dish.tags ? dish.tags.split(',') : [];
-            const tagDetails = dish.tag_details || [];
-            const displayedTags = tags.slice(0, 2);
-            const moreTagsCount = tags.length - 2;
-
-            function getTagStyle(tagName) {
-                const tag = tagDetails.find(t => t.name === tagName.trim()) || 
-                           allTags.find(t => t.name === tagName.trim());
-                return {
-                    backgroundColor: tag?.background_color || '#999',
-                    color: tag?.text_color || 'white'
-                };
-            }
-
-            return `
-                <div class="dish-card" onclick="showDishDetail(${dish.id})" data-dish-id="${dish.id}">
-                    <div class="dish-image" style="background-color: #F2C76E;">
-                        ${dish.image ? `<img src="${dish.image}" alt="${dish.name}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">` : dish.name.charAt(0)}
-                        <div class="dish-actions">
-                            ${window.isAdminMode ? `
-                                <button class="dish-action-btn" onclick="event.stopPropagation(); editDish(${dish.id})">
-                                    <img src="img/icon/编辑.png" alt="编辑" width="16" height="16">
-                                </button>
-                                <button class="dish-action-btn" onclick="event.stopPropagation(); removeDish(${dish.id})">
-                                    <img src="img/icon/删除.png" alt="删除" width="16" height="16">
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                    <div class="dish-info">
-                            <div class="dish-name">${dish.name}</div>
-                            <div class="dish-price">¥${dish.price.toFixed(1)}</div>
-                            <div class="dish-desc">${dish.description || ''}</div>
-                            <div class="dish-tags">
-                                ${displayedTags.map(tag => {
-                                    const style = getTagStyle(tag);
-                                    return `<span class="dish-tag ${tag.trim()}" style="background-color: ${style.backgroundColor}; color: ${style.color};">${tag.trim()}</span>`;
-                                }).join('')}
-                                ${moreTagsCount > 0 ? `<span class="dish-tag more">+${moreTagsCount}</span>` : ''}
-                            </div>
-                        </div>
                 </div>
-            `;
-        }).join('');
+                <div class="dish-info">
+                    <div class="dish-name">${dish.name}</div>
+                    <div class="dish-price">¥${dish.price.toFixed(1)}</div>
+                    <div class="dish-desc">${dish.description || ''}</div>
+                    <div class="dish-tags">
+                        ${displayedTags.map(tag => {
+                            const style = getTagStyle(tag, tagDetails);
+                            return `<span class="dish-tag ${tag.trim()}" style="background-color: ${style.backgroundColor}; color: ${style.color};">${tag.trim()}</span>`;
+                        }).join('')}
+                        ${moreTagsCount > 0 ? `<span class="dish-tag more">+${moreTagsCount}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    if (append && newDishes.length > 0) {
+        const newDishHTML = newDishes.map(generateDishHTML).join('');
+        menuGrid.insertAdjacentHTML('beforeend', newDishHTML);
+    } else {
+        const dishHTML = dishes.map(generateDishHTML).join('');
         menuGrid.innerHTML = dishHTML;
     }
 }
@@ -341,13 +282,11 @@ function renderTags(tags) {
         };
     });
 
-    // 获取第一个一级标签的ID，用于默认显示其子标签
     const firstPrimaryTagId = primaryTags.length > 0 ? primaryTags[0].id : null;
 
-    // 渲染一级标签
     primaryTagsContainer.innerHTML = `
         <div class="primary-tags-row">
-            ${Object.values(tagHierarchy).map(({ tag, children }) => `
+            ${Object.values(tagHierarchy).map(({ tag }) => `
                 <div class="tag-category" data-category="${tag.name}" data-tag-id="${tag.id}">
                     <div class="tag-category-title ${firstPrimaryTagId === tag.id ? 'active' : ''}" onclick="toggleTagCategory(this.parentElement)" style="background: ${tag.background_color || 'rgba(122, 119, 185, 0.15)'}; color: ${tag.text_color || 'white'};">
                         <span>${tag.name}</span>
@@ -357,13 +296,12 @@ function renderTags(tags) {
         </div>
     `;
 
-    // 渲染二级标签
     secondaryTagsContainer.innerHTML = `
         <div class="secondary-tags-row">
             ${Object.values(tagHierarchy).map(({ tag, children }) => `
                 <div class="tag-sub-container" data-category="${tag.name}" data-tag-id="${tag.id}" style="${firstPrimaryTagId === tag.id ? 'display: inline-flex; gap: 0.5rem;' : 'display: none;'}">
                     ${children.map(childTag => `
-                        <span class="tag ${childTag.name}" data-tag="${childTag.name}" onclick="filterByTag('${childTag.name}')" style="background: ${childTag.background_color || 'rgba(122, 119, 185, 0.2)'};">
+                        <span class="tag ${childTag.name}" data-tag="${childTag.name}" onclick="filterByTag('${childTag.name}')" style="background: ${childTag.background_color || 'rgba(122, 119, 185, 0.2)'}; color: ${childTag.text_color || 'white'};">
                             ${childTag.name}
                         </span>
                     `).join('')}
@@ -374,26 +312,21 @@ function renderTags(tags) {
 }
 
 function toggleTagCategory(element) {
-    const categoryName = element.dataset.category;
     const tagId = element.dataset.tagId;
     
-    // 移除所有一级标签的active状态
     document.querySelectorAll('.tag-category-title').forEach(title => {
         title.classList.remove('active');
     });
     
-    // 为当前点击的一级标签添加active状态
     const titleElement = element.querySelector('.tag-category-title');
     if (titleElement) {
         titleElement.classList.add('active');
     }
     
-    // 隐藏所有二级标签容器
     document.querySelectorAll('.tag-sub-container').forEach(container => {
         container.style.display = 'none';
     });
     
-    // 显示当前一级标签对应的二级标签
     const currentSecondaryTags = document.querySelector(`.tag-sub-container[data-tag-id="${tagId}"]`);
     if (currentSecondaryTags) {
         currentSecondaryTags.style.display = 'inline-flex';
@@ -402,7 +335,6 @@ function toggleTagCategory(element) {
 }
 
 let activeTag = '';
-// currentRequest 已在文件顶部声明，此处无需重复声明
 
 function filterByTag(tagName) {
     const tagElement = document.querySelector(`.tag[data-tag="${tagName}"]`);
@@ -444,24 +376,6 @@ function changeQuantity(dishId, delta) {
 
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartDisplay();
-    renderDishes(allDishes, false);
-}
-
-function addToCart(dishId) {
-    const dish = allDishes.find(d => d.id === dishId);
-    if (!dish) return;
-
-    const existingItem = cart.find(item => item.id === dishId);
-
-    if (existingItem) {
-        existingItem.quantity++;
-    } else {
-        cart.push({ id: dish.id, name: dish.name, price: dish.price, quantity: 1 });
-    }
-
-    localStorage.setItem('cart', JSON.stringify(cart));
-    updateCartDisplay();
-    renderDishes(allDishes, false);
 }
 
 function updateCartDisplay() {
@@ -512,15 +426,6 @@ function showDishDetail(dishId) {
     const tags = dish.tags ? dish.tags.split(',') : [];
     const tagDetails = dish.tag_details || [];
 
-    function getTagStyle(tagName) {
-        const tag = tagDetails.find(t => t.name === tagName.trim()) || 
-                   allTags.find(t => t.name === tagName.trim());
-        return {
-            backgroundColor: tag?.background_color || '#999',
-            color: tag?.text_color || 'white'
-        };
-    }
-
     dishDetail.innerHTML = `
         <div class="dish-detail-image">
             ${dish.image ? `<img src="${dish.image}" alt="${dish.name}" style="width: 100%; height: 100%; object-fit: cover;">` : dish.name.charAt(0)}
@@ -540,7 +445,7 @@ function showDishDetail(dishId) {
         </div>
         <div class="dish-detail-tags">
             ${tags.map(tag => {
-                const style = getTagStyle(tag);
+                const style = getTagStyle(tag, tagDetails);
                 return `<span class="dish-tag ${tag.trim()}" style="background-color: ${style.backgroundColor}; color: ${style.color};">${tag.trim()}</span>`;
             }).join('')}
         </div>
@@ -638,7 +543,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchModal = document.getElementById('search-modal');
     const searchClose = document.getElementById('search-close');
 
-    // 搜索弹窗功能
     searchToggle?.addEventListener('click', () => {
         searchModal.classList.add('active');
     });
@@ -648,7 +552,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         searchInput.value = '';
     });
 
-    // 点击弹窗外部关闭
     searchModal?.addEventListener('click', (e) => {
         if (e.target === searchModal) {
             searchModal.classList.remove('active');
@@ -656,7 +559,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 搜索输入处理
     let searchTimeout;
     searchInput?.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
@@ -694,14 +596,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     cartToggle?.addEventListener('click', () => {
         cartContainer.classList.toggle('active');
-    });
-
-    // searchTimeout 已在上方声明，此处无需重复声明
-    searchInput?.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            fetchDishes(activeTag, e.target.value);
-        }, 300);
     });
 
     document.getElementById('dish-form')?.addEventListener('submit', async (e) => {
@@ -800,7 +694,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 window.changeQuantity = changeQuantity;
-window.addToCart = addToCart;
 window.showDishDetail = showDishDetail;
 window.removeDish = removeDish;
 window.editDish = editDish;

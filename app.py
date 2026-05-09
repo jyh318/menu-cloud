@@ -1,8 +1,6 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import pymysql
-from contextlib import contextmanager
-import os
 
 app = Flask(__name__)
 CORS(app)
@@ -27,41 +25,6 @@ DB_CONFIG = {
 
 def get_db_connection():
     return pymysql.connect(**DB_CONFIG)
-
-@contextmanager
-def get_db():
-    conn = get_db_connection()
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tags (
-            id INT PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(50) NOT NULL UNIQUE,
-            category VARCHAR(50),
-            color VARCHAR(20)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS dishes (
-            id INT PRIMARY KEY AUTO_INCREMENT,
-            name VARCHAR(100) NOT NULL,
-            price DECIMAL(10,2) NOT NULL,
-            image VARCHAR(255),
-            description TEXT,
-            detail_desc TEXT,
-            method TEXT,
-            ingredients TEXT,
-            tags VARCHAR(255)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ''')
-    conn.commit()
-    conn.close()
 
 def get_all_tags_cache():
     conn = get_db_connection()
@@ -222,7 +185,7 @@ def get_dish(dish_id):
 
 @app.route('/api/dishes', methods=['POST'])
 def create_dish():
-    global _tag_cache, _dish_tags_cache
+    global _dish_tags_cache
     data = request.json
 
     required_fields = ['name', 'price']
@@ -374,5 +337,4 @@ def refresh_cache():
     return jsonify({'message': '缓存已刷新'})
 
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True, host='0.0.0.0', port=5000)
