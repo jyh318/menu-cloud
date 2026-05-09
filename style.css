@@ -18,7 +18,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 1rem 1.5rem;
-    background-image: url('https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=elegant%20restaurant%20background%20with%20warm%20lighting%20and%20food%20elements%20soft%20focus&image_size=landscape_16_9');
+    background-image: url('./img/icon/bg_img.jpeg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -392,12 +392,12 @@ body {
 }
 
 .tag {
-    padding: 0.1rem 0.2rem;
-    border-radius: 15px;
+    padding: 0.5rem 0.8rem;
+    border-radius: 16px;
     color: white;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-size: 0.72rem;
+    font-size: 0.88rem;
     font-weight: 500;
     border: 2px solid transparent;
     line-height: 1;

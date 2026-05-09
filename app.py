@@ -1,9 +1,13 @@
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import pymysql
+import os
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)
+
+load_dotenv()
 
 @app.route('/')
 def serve_index():
@@ -14,12 +18,12 @@ def serve_static(path):
     return send_from_directory('.', path)
 
 DB_CONFIG = {
-    'host': 'sh-cynosdbmysql-grp-d2dhhovq.sql.tencentcdb.com',
-    'port': 23841,
-    'user': 'menu',
-    'password': 'menu.123',
-    'db': 'room-d0gyj4jwe761aa259',
-    'charset': 'utf8mb4',
+    'host': os.getenv('DB_HOST', 'sh-cynosdbmysql-grp-d2dhhovq.sql.tencentcdb.com'),
+    'port': int(os.getenv('DB_PORT', 23841)),
+    'user': os.getenv('DB_USER', 'menu'),
+    'password': os.getenv('DB_PASSWORD', 'menu.123'),
+    'db': os.getenv('DB_NAME', 'room-d0gyj4jwe761aa259'),
+    'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
     'cursorclass': pymysql.cursors.DictCursor
 }
 
