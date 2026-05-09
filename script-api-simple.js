@@ -121,55 +121,6 @@ async function fetchTags() {
     }
 }
 
-async function createDish(dishData) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/dishes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dishData)
-        });
-
-        if (!response.ok) throw new Error('创建菜品失败');
-
-        await fetchDishes();
-    } catch (error) {
-        console.error('Error creating dish:', error);
-        throw error;
-    }
-}
-
-async function updateDish(dishId, dishData) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/dishes/${dishId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dishData)
-        });
-
-        if (!response.ok) throw new Error('更新菜品失败');
-
-        await fetchDishes();
-    } catch (error) {
-        console.error('Error updating dish:', error);
-        throw error;
-    }
-}
-
-async function deleteDish(dishId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/dishes/${dishId}`, {
-            method: 'DELETE'
-        });
-
-        if (!response.ok) throw new Error('删除菜品失败');
-
-        await fetchDishes();
-    } catch (error) {
-        console.error('Error deleting dish:', error);
-        throw error;
-    }
-}
-
 async function createTag(tagData) {
     try {
         const response = await fetch(`${API_BASE_URL}/tags`, {
@@ -242,7 +193,7 @@ function renderDishes(dishes, append = false, newDishes = []) {
                 </div>
                 <div class="dish-info">
                     <div class="dish-name">${dish.name}</div>
-                    <div class="dish-price">¥${dish.price.toFixed(1)}</div>
+                    <div class="dish-price">¥${dish.price.toFixed(1)}<button class="add-to-cart-btn" onclick="event.stopPropagation(); changeQuantity(${dish.id}, 1)"><img src="img/icon/购物车.png" alt="加入购物车" width="18" height="18"></button></div>
                     <div class="dish-desc">${dish.description || ''}</div>
                     <div class="dish-tags">
                         ${displayedTags.map(tag => {
@@ -352,11 +303,16 @@ function filterByTag(tagName) {
     fetchDishes(activeTag, searchValue);
 }
 
-let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+let cart = [];
 
 function getCartQuantity(dishId) {
     const item = cart.find(item => item.id === dishId);
     return item ? item.quantity : 0;
+}
+
+function removeFromCart(dishId) {
+    cart = cart.filter(item => item.id !== dishId);
+    updateCartDisplay();
 }
 
 function changeQuantity(dishId, delta) {
@@ -370,50 +326,109 @@ function changeQuantity(dishId, delta) {
     } else if (delta > 0) {
         const dish = allDishes.find(d => d.id === dishId);
         if (dish) {
-            cart.push({ id: dish.id, name: dish.name, price: dish.price, quantity: 1 });
+            cart.push({ id: dish.id, name: dish.name, price: dish.price, image: dish.image, quantity: 1 });
         }
     }
 
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartDisplay();
+    
+    const modalQuantityEl = document.getElementById(`modal-quantity-${dishId}`);
+    if (modalQuantityEl) {
+        modalQuantityEl.textContent = getCartQuantity(dishId);
+    }
 }
 
 function updateCartDisplay() {
     const cartItems = document.getElementById('cart-items');
     const totalPriceEl = document.getElementById('total-price');
     const cartBadge = document.getElementById('cart-badge');
-
-    if (!cartItems) return;
+    const cartButton = document.getElementById('cart-button');
 
     const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     if (cartBadge) {
         cartBadge.textContent = totalQuantity;
-        cartBadge.style.display = totalQuantity > 0 ? 'flex' : 'none';
+    }
+    
+    if (cartButton) {
+        cartButton.style.display = 'flex';
     }
 
     if (totalPriceEl) {
         totalPriceEl.textContent = `¥${totalPrice.toFixed(2)}`;
     }
 
+    const totalAmountEl = document.getElementById('total-amount');
+    if (totalAmountEl) {
+        totalAmountEl.textContent = `¥${totalPrice.toFixed(2)}`;
+    }
+
+    if (!cartItems) return;
+
     cartItems.innerHTML = cart.map(item => `
         <div class="cart-item">
+            <img src="${item.image || 'img/icon/default-dish.png'}" alt="${item.name}" class="cart-item-image">
             <div class="cart-item-info">
                 <div class="cart-item-name">${item.name}</div>
-                <div class="cart-item-price">¥${item.price.toFixed(1)} × ${item.quantity}</div>
+                <div class="cart-item-price">¥${item.price.toFixed(2)}</div>
             </div>
             <div class="cart-item-quantity">
                 <button class="quantity-btn" onclick="changeQuantity(${item.id}, -1)">-</button>
                 <span class="quantity">${item.quantity}</span>
                 <button class="quantity-btn" onclick="changeQuantity(${item.id}, 1)">+</button>
             </div>
+            <button class="cart-item-delete" onclick="removeFromCart(${item.id})">
+                <img src="img/icon/删除.png" alt="删除" width="20" height="20">
+            </button>
         </div>
     `).join('');
 
     if (cart.length === 0) {
         cartItems.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">购物车为空</p>';
     }
+}
+
+function openCart() {
+    const cartSidebar = document.getElementById('cart-sidebar');
+    if (cartSidebar) {
+        cartSidebar.classList.add('active');
+    }
+}
+
+function closeCart() {
+    const cartSidebar = document.getElementById('cart-sidebar');
+    if (cartSidebar) {
+        cartSidebar.classList.remove('active');
+    }
+}
+
+function checkout() {
+    if (cart.length === 0) {
+        alert('购物车是空的');
+        return;
+    }
+
+    const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const orderData = {
+        '订单详情': cart.map(item => ({
+            '名称': item.name,
+            '单价': item.price,
+            '数量': item.quantity,
+            '小计金额': item.price * item.quantity
+        })),
+        '合计金额': totalPrice.toFixed(2)
+    };
+
+    const orderJson = encodeURIComponent(JSON.stringify(orderData));
+    window.location.href = `receipt.html?order=${orderJson}`;
+
+    cart = [];
+    localStorage.setItem('cart', JSON.stringify(cart));
+    updateCartDisplay();
+    closeCart();
 }
 
 function showDishDetail(dishId) {
@@ -431,18 +446,7 @@ function showDishDetail(dishId) {
             ${dish.image ? `<img src="${dish.image}" alt="${dish.name}" style="width: 100%; height: 100%; object-fit: cover;">` : dish.name.charAt(0)}
         </div>
         <div class="dish-detail-name">${dish.name}</div>
-        <div class="dish-detail-price-section" style="display: flex; align-items: center; justify-content: space-between;">
-            <div class="dish-detail-price">¥${dish.price.toFixed(1)}</div>
-            ${!window.isAdminMode ? `
-                <div class="dish-detail-quantity">
-                    <div class="quantity-control">
-                        <button class="quantity-btn" onclick="changeQuantity(${dish.id}, -1)">-</button>
-                        <span class="quantity" id="modal-quantity-${dish.id}">${getCartQuantity(dish.id)}</span>
-                        <button class="quantity-btn" onclick="changeQuantity(${dish.id}, 1)">+</button>
-                    </div>
-                </div>
-            ` : ''}
-        </div>
+        <div class="dish-detail-price">¥${dish.price.toFixed(1)}</div>
         <div class="dish-detail-tags">
             ${tags.map(tag => {
                 const style = getTagStyle(tag, tagDetails);
@@ -468,34 +472,6 @@ function showDishDetail(dishId) {
     `;
 
     modal.classList.add('active');
-}
-
-function removeDish(dishId) {
-    if (!confirm('确定要删除这个菜品吗？')) return;
-
-    deleteDish(dishId)
-        .then(() => alert('删除成功'))
-        .catch(() => alert('删除失败'));
-}
-
-let editingDishId = null;
-
-function editDish(dishId) {
-    const dish = allDishes.find(d => d.id === dishId);
-    if (!dish) return;
-
-    editingDishId = dishId;
-
-    document.getElementById('edit-dish-name').value = dish.name;
-    document.getElementById('edit-dish-price').value = dish.price;
-    document.getElementById('edit-dish-image').value = dish.image || '';
-    document.getElementById('edit-dish-desc').value = dish.description || '';
-    document.getElementById('edit-dish-detail-desc').value = dish.detail_desc || '';
-    document.getElementById('edit-dish-method').value = dish.method || '';
-    document.getElementById('edit-dish-ingredients').value = dish.ingredients || '';
-    document.getElementById('edit-dish-tags').value = dish.tags || '';
-
-    document.getElementById('edit-panel').classList.add('active');
 }
 
 window.isAdminMode = false;
@@ -536,8 +512,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const editClose = document.getElementById('edit-close');
     const modal = document.getElementById('dish-modal');
     const modalClose = document.getElementById('modal-close');
-    const cartContainer = document.getElementById('cart-container');
-    const cartToggle = document.getElementById('cart-toggle');
+    const cartButton = document.getElementById('cart-button');
+    const cartSidebar = document.getElementById('cart-sidebar');
+    const cartClose = document.getElementById('cart-close');
+    const checkoutButton = document.getElementById('checkout-button');
     const searchInput = document.getElementById('search-input');
     const searchToggle = document.getElementById('search-toggle');
     const searchModal = document.getElementById('search-modal');
@@ -571,7 +549,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     adminToggle?.addEventListener('click', () => {
         window.isAdminMode = !window.isAdminMode;
         adminPanel.classList.toggle('active');
-        cartContainer.classList.toggle('active', !window.isAdminMode);
         renderDishes(allDishes, false);
     });
 
@@ -594,32 +571,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.target === modal) modal.classList.remove('active');
     });
 
-    cartToggle?.addEventListener('click', () => {
-        cartContainer.classList.toggle('active');
-    });
-
-    document.getElementById('dish-form')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const dishData = {
-            name: document.getElementById('dish-name').value,
-            price: parseFloat(document.getElementById('dish-price').value),
-            image: document.getElementById('dish-image').value,
-            description: document.getElementById('dish-desc').value,
-            detail_desc: document.getElementById('dish-detail-desc').value,
-            method: document.getElementById('dish-method').value,
-            ingredients: document.getElementById('dish-ingredients').value,
-            tags: document.getElementById('dish-tags').value
-        };
-
-        try {
-            await createDish(dishData);
-            alert('菜品创建成功');
-            e.target.reset();
-        } catch (error) {
-            alert('创建失败');
-        }
-    });
+    cartButton?.addEventListener('click', openCart);
+    cartClose?.addEventListener('click', closeCart);
+    checkoutButton?.addEventListener('click', checkout);
 
     document.getElementById('tag-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -639,64 +593,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    document.getElementById('edit-dish-form')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
 
-        if (!editingDishId) return;
-
-        const dishData = {
-            name: document.getElementById('edit-dish-name').value,
-            price: parseFloat(document.getElementById('edit-dish-price').value),
-            image: document.getElementById('edit-dish-image').value,
-            description: document.getElementById('edit-dish-desc').value,
-            detail_desc: document.getElementById('edit-dish-detail-desc').value,
-            method: document.getElementById('edit-dish-method').value,
-            ingredients: document.getElementById('edit-dish-ingredients').value,
-            tags: document.getElementById('edit-dish-tags').value
-        };
-
-        try {
-            await updateDish(editingDishId, dishData);
-            alert('菜单更新成功');
-            editPanel.classList.remove('active');
-            editingDishId = null;
-        } catch (error) {
-            alert('更新失败');
-        }
-    });
-
-    document.querySelector('.checkout-button')?.addEventListener('click', () => {
-        if (cart.length === 0) {
-            alert('购物车是空的');
-            return;
-        }
-
-        const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-        const orderData = {
-            '订单详情': cart.map(item => ({
-                '名称': item.name,
-                '单价': item.price,
-                '数量': item.quantity,
-                '小计金额': item.price * item.quantity
-            })),
-            '合计金额': totalPrice.toFixed(2)
-        };
-
-        const orderJson = encodeURIComponent(JSON.stringify(orderData));
-        window.location.href = `receipt.html?order=${orderJson}`;
-
-        cart = [];
-        localStorage.setItem('cart', JSON.stringify(cart));
-        updateCartDisplay();
-        cartContainer.classList.remove('active');
-    });
 });
 
 window.changeQuantity = changeQuantity;
 window.showDishDetail = showDishDetail;
-window.removeDish = removeDish;
-window.editDish = editDish;
 window.filterByTag = filterByTag;
 window.getCartQuantity = getCartQuantity;
 window.toggleTagCategory = toggleTagCategory;
+window.openCart = openCart;
+window.closeCart = closeCart;
+window.checkout = checkout;

@@ -69,13 +69,21 @@ def get_dish_tags_mapping():
 
 _tag_cache = None
 _dish_tags_cache = None
+_cache_timestamp = 0
+
+# 缓存过期时间，单位秒
+CACHE_EXPIRE_SECONDS = 30
 
 def get_tag_caches():
-    global _tag_cache, _dish_tags_cache
-    if _tag_cache is None:
+    global _tag_cache, _dish_tags_cache, _cache_timestamp
+    import time
+    current_time = time.time()
+    if _tag_cache is None or (current_time - _cache_timestamp) > CACHE_EXPIRE_SECONDS:
         _tag_cache = get_all_tags_cache()
-    if _dish_tags_cache is None:
         _dish_tags_cache = get_dish_tags_mapping()
+        _cache_timestamp = current_time
+        Time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(current_time))
+        print(f"缓存刷新: {Time}")
     return _tag_cache, _dish_tags_cache
 
 @app.route('/api/dishes', methods=['GET'])
@@ -92,7 +100,8 @@ def get_dishes():
     params = []
 
     if search:
-        query += ' AND (name LIKE %s OR description LIKE %s)'
+        query += ' AND (name LIKE %s OR description LIKE %s OR CAST(price AS CHAR) LIKE %s)'
+        params.append(f'%{search}%')
         params.append(f'%{search}%')
         params.append(f'%{search}%')
 
@@ -187,93 +196,6 @@ def get_dish(dish_id):
 
     return jsonify(dish)
 
-@app.route('/api/dishes', methods=['POST'])
-def create_dish():
-    global _dish_tags_cache
-    data = request.json
-
-    required_fields = ['name', 'price']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'缺少必填字段: {field}'}), 400
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute('''
-        INSERT INTO dishes (name, price, image, description, detail_desc, method, ingredients, tags)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    ''', (
-        data.get('name'),
-        data.get('price'),
-        data.get('image', ''),
-        data.get('description', ''),
-        data.get('detail_desc', ''),
-        data.get('method', ''),
-        data.get('ingredients', ''),
-        data.get('tags', '')
-    ))
-
-    dish_id = cursor.lastrowid
-    _dish_tags_cache = None
-    conn.commit()
-    conn.close()
-
-    return jsonify({'id': dish_id, 'message': '菜品创建成功'}), 201
-
-@app.route('/api/dishes/<int:dish_id>', methods=['PUT'])
-def update_dish(dish_id):
-    global _dish_tags_cache
-    data = request.json
-
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute('SELECT * FROM dishes WHERE id = %s', (dish_id,))
-    if cursor.fetchone() is None:
-        conn.close()
-        return jsonify({'error': '菜品不存在'}), 404
-
-    cursor.execute('''
-        UPDATE dishes
-        SET name = %s, price = %s, image = %s, description = %s, detail_desc = %s, method = %s, ingredients = %s, tags = %s
-        WHERE id = %s
-    ''', (
-        data.get('name'),
-        data.get('price'),
-        data.get('image', ''),
-        data.get('description', ''),
-        data.get('detail_desc', ''),
-        data.get('method', ''),
-        data.get('ingredients', ''),
-        data.get('tags', ''),
-        dish_id
-    ))
-
-    _dish_tags_cache = None
-    conn.commit()
-    conn.close()
-
-    return jsonify({'message': '菜品更新成功'})
-
-@app.route('/api/dishes/<int:dish_id>', methods=['DELETE'])
-def delete_dish(dish_id):
-    global _dish_tags_cache
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute('SELECT * FROM dishes WHERE id = %s', (dish_id,))
-    if cursor.fetchone() is None:
-        conn.close()
-        return jsonify({'error': '菜品不存在'}), 404
-
-    cursor.execute('DELETE FROM dishes WHERE id = %s', (dish_id,))
-    _dish_tags_cache = None
-    conn.commit()
-    conn.close()
-
-    return jsonify({'message': '菜品删除成功'})
-
 @app.route('/api/tags', methods=['GET'])
 def get_tags():
     conn = get_db_connection()
@@ -341,4 +263,4 @@ def refresh_cache():
     return jsonify({'message': '缓存已刷新'})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)
