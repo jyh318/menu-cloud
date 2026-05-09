@@ -349,7 +349,7 @@ function renderTags(tags) {
         <div class="primary-tags-row">
             ${Object.values(tagHierarchy).map(({ tag, children }) => `
                 <div class="tag-category" data-category="${tag.name}" data-tag-id="${tag.id}">
-                    <div class="tag-category-title ${firstPrimaryTagId === tag.id ? 'active' : ''}" onclick="toggleTagCategory(this.parentElement)" style="background: ${tag.background_color || 'rgba(122, 119, 185, 0.15)'};">
+                    <div class="tag-category-title ${firstPrimaryTagId === tag.id ? 'active' : ''}" onclick="toggleTagCategory(this.parentElement)" style="background: ${tag.background_color || 'rgba(122, 119, 185, 0.15)'}; color: ${tag.text_color || 'white'};">
                         <span>${tag.name}</span>
                     </div>
                 </div>
