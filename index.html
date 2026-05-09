@@ -10,18 +10,34 @@
     <!-- 顶部导航栏 -->
     <header class="header">
         <img id="logo" src="img/icon/logo.png" alt="logo" height="50">
-        <div class="search-container">
-            <input type="text" id="search-input" placeholder="搜索菜品、价格或描述...">
+        <div class="right-buttons">
+            <button id="search-toggle" class="search-button">
+                <img src="img/icon/搜索.png" alt="搜索" width="24" height="24">
+            </button>
+            <button id="admin-toggle" class="admin-button">
+                <img src="img/icon/manage.png" alt="管理员" width="30" height="30">
+            </button>
         </div>
-        <button id="admin-toggle" class="admin-button">
-            <img src="img/icon/manage.png" alt="管理员" width="30" height="30">
-        </button>
     </header>
+
+    <!-- 搜索弹窗 -->
+    <div class="search-modal" id="search-modal">
+        <div class="search-modal-content">
+            <input type="text" id="search-input" placeholder="搜索菜品、价格或描述..." autofocus>
+            <button id="search-close" class="search-close">
+                <img src="img/icon/关闭.png" alt="关闭" width="20" height="20">
+            </button>
+        </div>
+    </div>
 
     <!-- 标签筛选栏 -->
     <div class="tags-container">
-        <div class="tags-wrapper" id="tags-wrapper">
-            <!-- 标签将通过JS动态生成 -->
+        <div class="primary-tags-container" id="primary-tags-container">
+            <!-- 一级标签将通过JS动态生成 -->
+        </div>
+        <div class="tags-divider"></div>
+        <div class="secondary-tags-container" id="secondary-tags-container">
+            <!-- 二级标签将通过JS动态生成 -->
         </div>
     </div>
 

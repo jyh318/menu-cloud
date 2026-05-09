@@ -6,8 +6,14 @@ let isLoading = false;
 let hasMoreDishes = true;
 let currentPage = 0;
 const pageSize = 12;
+let currentRequest = null;
 
 async function fetchDishes(tagFilter = '', search = '', append = false) {
+    // 取消之前的请求
+    if (currentRequest) {
+        currentRequest.abort();
+    }
+    
     if (isLoading) return;
     if (!append) {
         currentPage = 0;
@@ -18,6 +24,10 @@ async function fetchDishes(tagFilter = '', search = '', append = false) {
     
     isLoading = true;
     showLoading(true);
+
+    // 创建新的请求控制器
+    const controller = new AbortController();
+    currentRequest = controller;
 
     try {
         let url = `${API_BASE_URL}/dishes`;
@@ -30,7 +40,7 @@ async function fetchDishes(tagFilter = '', search = '', append = false) {
 
         url += '?' + params.toString();
 
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error('获取菜品失败');
 
         const data = await response.json();
@@ -315,8 +325,10 @@ function renderDishes(dishes, append = false, newDishes = []) {
 }
 
 function renderTags(tags) {
-    const tagsWrapper = document.getElementById('tags-wrapper');
-    if (!tagsWrapper) return;
+    const primaryTagsContainer = document.getElementById('primary-tags-container');
+    const secondaryTagsContainer = document.getElementById('secondary-tags-container');
+    
+    if (!primaryTagsContainer || !secondaryTagsContainer) return;
 
     const primaryTags = tags.filter(tag => tag.parentid === null || tag.parentid === 0 || tag.parentid === 'null');
     const secondaryTags = tags.filter(tag => tag.parentid !== null && tag.parentid !== 0 && tag.parentid !== 'null');
@@ -329,26 +341,29 @@ function renderTags(tags) {
         };
     });
 
-    // 创建一级标签行和二级标签行
-    tagsWrapper.innerHTML = `
-        <!-- 一级标签行 -->
+    // 获取第一个一级标签的ID，用于默认显示其子标签
+    const firstPrimaryTagId = primaryTags.length > 0 ? primaryTags[0].id : null;
+
+    // 渲染一级标签
+    primaryTagsContainer.innerHTML = `
         <div class="primary-tags-row">
             ${Object.values(tagHierarchy).map(({ tag, children }) => `
-                <div class="tag-category" data-category="${tag.name}">
-                    <div class="tag-category-title" onclick="toggleTagCategory(this.parentElement)" style="background-color: ${tag.background_color || '#7A77B9'}; color: ${tag.text_color || 'white'};">
+                <div class="tag-category" data-category="${tag.name}" data-tag-id="${tag.id}">
+                    <div class="tag-category-title ${firstPrimaryTagId === tag.id ? 'active' : ''}" onclick="toggleTagCategory(this.parentElement)" style="background: ${tag.background_color || 'rgba(122, 119, 185, 0.15)'};">
                         <span>${tag.name}</span>
-                        <img class="dropdown-icon" src="img/icon/下拉.png" alt="展开" width="16" height="16">
                     </div>
                 </div>
             `).join('')}
         </div>
-        
-        <!-- 二级标签行 -->
+    `;
+
+    // 渲染二级标签
+    secondaryTagsContainer.innerHTML = `
         <div class="secondary-tags-row">
             ${Object.values(tagHierarchy).map(({ tag, children }) => `
-                <div class="tag-sub-container" data-category="${tag.name}" style="display: none; margin-right: 1rem;">
+                <div class="tag-sub-container" data-category="${tag.name}" data-tag-id="${tag.id}" style="${firstPrimaryTagId === tag.id ? 'display: inline-flex; gap: 0.5rem;' : 'display: none;'}">
                     ${children.map(childTag => `
-                        <span class="tag ${childTag.name}" data-tag="${childTag.name}" onclick="filterByTag('${childTag.name}')" style="background-color: ${childTag.background_color || '#7A77B9'}; color: ${childTag.text_color || 'white'}; margin-right: 0.5rem;">
+                        <span class="tag ${childTag.name}" data-tag="${childTag.name}" onclick="filterByTag('${childTag.name}')" style="background: ${childTag.background_color || 'rgba(122, 119, 185, 0.2)'};">
                             ${childTag.name}
                         </span>
                     `).join('')}
@@ -356,47 +371,38 @@ function renderTags(tags) {
             `).join('')}
         </div>
     `;
-    
-    // 初始状态隐藏二级标签行
-    const secondaryTagsRow = document.querySelector('.secondary-tags-row');
-    if (secondaryTagsRow) {
-        secondaryTagsRow.style.display = 'none';
-    }
 }
 
 function toggleTagCategory(element) {
     const categoryName = element.dataset.category;
+    const tagId = element.dataset.tagId;
     
-    // 收起所有其他展开的一级标签
-    document.querySelectorAll('.tag-category.expanded').forEach(category => {
-        if (category !== element) {
-            category.classList.remove('expanded');
-            const otherCategoryName = category.dataset.category;
-            const otherSecondaryTags = document.querySelector(`.tag-sub-container[data-category="${otherCategoryName}"]`);
-            if (otherSecondaryTags) {
-                otherSecondaryTags.style.display = 'none';
-            }
-        }
+    // 移除所有一级标签的active状态
+    document.querySelectorAll('.tag-category-title').forEach(title => {
+        title.classList.remove('active');
     });
     
-    // 切换当前标签的展开/收起状态
-    const isExpanded = element.classList.toggle('expanded');
-    
-    // 显示或隐藏对应的二级标签
-    const secondaryTags = document.querySelector(`.tag-sub-container[data-category="${categoryName}"]`);
-    if (secondaryTags) {
-        secondaryTags.style.display = isExpanded ? 'inline-block' : 'none';
+    // 为当前点击的一级标签添加active状态
+    const titleElement = element.querySelector('.tag-category-title');
+    if (titleElement) {
+        titleElement.classList.add('active');
     }
     
-    // 控制二级标签行的显示
-    const secondaryTagsRow = document.querySelector('.secondary-tags-row');
-    const anyExpanded = document.querySelector('.tag-category.expanded');
-    if (secondaryTagsRow) {
-        secondaryTagsRow.style.display = anyExpanded ? 'flex' : 'none';
+    // 隐藏所有二级标签容器
+    document.querySelectorAll('.tag-sub-container').forEach(container => {
+        container.style.display = 'none';
+    });
+    
+    // 显示当前一级标签对应的二级标签
+    const currentSecondaryTags = document.querySelector(`.tag-sub-container[data-tag-id="${tagId}"]`);
+    if (currentSecondaryTags) {
+        currentSecondaryTags.style.display = 'inline-flex';
+        currentSecondaryTags.style.gap = '0.5rem';
     }
 }
 
 let activeTag = '';
+// currentRequest 已在文件顶部声明，此处无需重复声明
 
 function filterByTag(tagName) {
     const tagElement = document.querySelector(`.tag[data-tag="${tagName}"]`);
@@ -628,6 +634,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cartContainer = document.getElementById('cart-container');
     const cartToggle = document.getElementById('cart-toggle');
     const searchInput = document.getElementById('search-input');
+    const searchToggle = document.getElementById('search-toggle');
+    const searchModal = document.getElementById('search-modal');
+    const searchClose = document.getElementById('search-close');
+
+    // 搜索弹窗功能
+    searchToggle?.addEventListener('click', () => {
+        searchModal.classList.add('active');
+    });
+
+    searchClose?.addEventListener('click', () => {
+        searchModal.classList.remove('active');
+        searchInput.value = '';
+    });
+
+    // 点击弹窗外部关闭
+    searchModal?.addEventListener('click', (e) => {
+        if (e.target === searchModal) {
+            searchModal.classList.remove('active');
+            searchInput.value = '';
+        }
+    });
+
+    // 搜索输入处理
+    let searchTimeout;
+    searchInput?.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const searchValue = e.target.value.trim();
+            fetchDishes(activeTag, searchValue);
+        }, 300);
+    });
 
     adminToggle?.addEventListener('click', () => {
         window.isAdminMode = !window.isAdminMode;
@@ -659,7 +696,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         cartContainer.classList.toggle('active');
     });
 
-    let searchTimeout;
+    // searchTimeout 已在上方声明，此处无需重复声明
     searchInput?.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
