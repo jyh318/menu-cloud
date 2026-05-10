@@ -7,6 +7,8 @@ let hasMoreDishes = true;
 let currentPage = 0;
 const pageSize = 12;
 let currentRequest = null;
+window.isCardEditMode = false;
+let editingDishId = null;
 
 async function fetchDishes(tagFilter = '', search = '', append = false) {
     if (currentRequest) {
@@ -181,7 +183,7 @@ function renderDishes(dishes, append = false, newDishes = []) {
                 <div class="dish-image" style="background-color: #F2C76E;">
                     ${dish.image ? `<img src="${dish.image}" alt="${dish.name}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">` : dish.name.charAt(0)}
                     <div class="dish-actions">
-                        ${window.isAdminMode ? `
+                        ${window.isCardEditMode ? `
                             <button class="dish-action-btn" onclick="event.stopPropagation(); editDish(${dish.id})">
                                 <img src="img/icon/编辑.png" alt="编辑" width="16" height="16">
                             </button>
@@ -313,6 +315,77 @@ function getCartQuantity(dishId) {
 function removeFromCart(dishId) {
     cart = cart.filter(item => item.id !== dishId);
     updateCartDisplay();
+}
+
+function toggleEditMode() {
+    window.isCardEditMode = !window.isCardEditMode;
+    renderDishes(allDishes, false);
+}
+
+function editDish(dishId) {
+    const dish = allDishes.find(d => d.id === dishId);
+    if (!dish) return;
+
+    editingDishId = dishId;
+
+    document.getElementById('edit-dish-name').value = dish.name;
+    document.getElementById('edit-dish-price').value = dish.price;
+    document.getElementById('edit-dish-image').value = dish.image || '';
+    document.getElementById('edit-dish-desc').value = dish.description || '';
+    document.getElementById('edit-dish-detail-desc').value = dish.detail_desc || '';
+    document.getElementById('edit-dish-method').value = dish.method || '';
+    document.getElementById('edit-dish-ingredients').value = dish.ingredients || '';
+    document.getElementById('edit-dish-tags').value = dish.tags || '';
+
+    document.getElementById('edit-panel').classList.add('active');
+}
+
+function removeDish(dishId) {
+    if (!confirm('确定要删除这个菜品吗？')) return;
+
+    deleteDishFromDB(dishId)
+        .then(() => {
+            alert('删除成功');
+            fetchDishes(activeTag, '');
+        })
+        .catch(() => alert('删除失败'));
+}
+
+async function deleteDishFromDB(dishId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/dishes/${dishId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('删除菜品失败');
+
+        allDishes = allDishes.filter(d => d.id !== dishId);
+        return response.json();
+    } catch (error) {
+        console.error('Error deleting dish:', error);
+        throw error;
+    }
+}
+
+async function updateDishInDB(dishId, dishData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/dishes/${dishId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dishData)
+        });
+
+        if (!response.ok) throw new Error('更新菜品失败');
+
+        const index = allDishes.findIndex(d => d.id === dishId);
+        if (index !== -1) {
+            allDishes[index] = { ...allDishes[index], ...dishData };
+        }
+        return response.json();
+    } catch (error) {
+        console.error('Error updating dish:', error);
+        throw error;
+    }
 }
 
 function changeQuantity(dishId, delta) {
@@ -508,8 +581,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const adminToggle = document.getElementById('admin-toggle');
     const adminPanel = document.getElementById('admin-panel');
     const adminClose = document.getElementById('admin-close');
-    const editPanel = document.getElementById('edit-panel');
-    const editClose = document.getElementById('edit-close');
+    // editPanel 已在上面声明，无需重复声明
+    //const editClose = document.getElementById('edit-close');
     const modal = document.getElementById('dish-modal');
     const modalClose = document.getElementById('modal-close');
     const cartButton = document.getElementById('cart-button');
@@ -575,6 +648,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     cartClose?.addEventListener('click', closeCart);
     checkoutButton?.addEventListener('click', checkout);
 
+    const editPanel = document.getElementById('edit-panel');
+    const editClose = document.getElementById('edit-close');
+    
+    editClose?.addEventListener('click', () => {
+        editPanel.classList.remove('active');
+        editingDishId = null;
+    });
+
+    document.getElementById('edit-dish-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!editingDishId) return;
+
+        const dishData = {
+            name: document.getElementById('edit-dish-name').value,
+            price: parseFloat(document.getElementById('edit-dish-price').value),
+            image: document.getElementById('edit-dish-image').value,
+            description: document.getElementById('edit-dish-desc').value,
+            detail_desc: document.getElementById('edit-dish-detail-desc').value,
+            method: document.getElementById('edit-dish-method').value,
+            ingredients: document.getElementById('edit-dish-ingredients').value,
+            tags: document.getElementById('edit-dish-tags').value
+        };
+
+        try {
+            await updateDishInDB(editingDishId, dishData);
+            alert('菜单更新成功');
+            editPanel.classList.remove('active');
+            editingDishId = null;
+            fetchDishes(activeTag, '');
+        } catch (error) {
+            alert('更新失败');
+        }
+    });
+
     document.getElementById('tag-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -604,3 +712,4 @@ window.toggleTagCategory = toggleTagCategory;
 window.openCart = openCart;
 window.closeCart = closeCart;
 window.checkout = checkout;
+window.toggleEditMode = toggleEditMode;

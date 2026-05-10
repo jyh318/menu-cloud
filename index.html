@@ -10,7 +10,7 @@
     <!-- 顶部导航栏 -->
     <header class="header">
         <div class="header-left">
-            <img id="logo" src="img/icon/logo.png" alt="logo" height="50">
+            <img id="logo" src="img/icon/logo.png" alt="logo" height="50" onclick="toggleEditMode()">
         </div>
         <div class="header-center">
             <h1 class="logo-text">小贾私房菜</h1>
@@ -114,11 +114,29 @@
                     <button type="submit">添加标签</button>
                 </form>
             </div>
-            <div class="admin-section">
-                <h4>数据同步</h4>
-                <button id="save-to-github" class="github-save-btn">同步数据</button>
-                <p id="save-status" class="save-status"></p>
-            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑菜品面板 -->
+    <div class="edit-panel" id="edit-panel">
+        <div class="edit-header">
+            <h2>编辑菜品</h2>
+            <button id="edit-close" class="edit-close">
+                <img src="img/icon/关闭.png" alt="关闭" width="24" height="24">
+            </button>
+        </div>
+        <div class="edit-content">
+            <form id="edit-dish-form">
+                <input type="text" placeholder="菜品名称" id="edit-dish-name">
+                <input type="number" placeholder="价格" id="edit-dish-price">
+                <input type="text" placeholder="图片URL" id="edit-dish-image">
+                <textarea placeholder="菜品简介" id="edit-dish-desc"></textarea>
+                <textarea placeholder="详细描述" id="edit-dish-detail-desc"></textarea>
+                <textarea placeholder="制作方法" id="edit-dish-method"></textarea>
+                <textarea placeholder="用料" id="edit-dish-ingredients"></textarea>
+                <input type="text" placeholder="标签 (用逗号分隔)" id="edit-dish-tags">
+                <button type="submit">保存修改</button>
+            </form>
         </div>
     </div>
 

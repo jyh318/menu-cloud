@@ -196,6 +196,59 @@ def get_dish(dish_id):
 
     return jsonify(dish)
 
+@app.route('/api/dishes/<int:dish_id>', methods=['PUT'])
+def update_dish(dish_id):
+    global _dish_tags_cache
+    data = request.json
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM dishes WHERE id = %s', (dish_id,))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({'error': '菜品不存在'}), 404
+
+    cursor.execute('''
+        UPDATE dishes
+        SET name = %s, price = %s, image = %s, description = %s, detail_description = %s, method = %s, ingredients = %s
+        WHERE id = %s
+    ''', (
+        data.get('name'),
+        data.get('price'),
+        data.get('image', ''),
+        data.get('description', ''),
+        data.get('detail_desc', ''),
+        data.get('method', ''),
+        data.get('ingredients', ''),
+        dish_id
+    ))
+
+    _dish_tags_cache = None
+    conn.commit()
+    conn.close()
+
+    return jsonify({'message': '菜品更新成功'})
+
+@app.route('/api/dishes/<int:dish_id>', methods=['DELETE'])
+def delete_dish(dish_id):
+    global _dish_tags_cache
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM dishes WHERE id = %s', (dish_id,))
+    if cursor.fetchone() is None:
+        conn.close()
+        return jsonify({'error': '菜品不存在'}), 404
+
+    cursor.execute('DELETE FROM taglink WHERE dish_id = %s', (dish_id,))
+    cursor.execute('DELETE FROM dishes WHERE id = %s', (dish_id,))
+    _dish_tags_cache = None
+    conn.commit()
+    conn.close()
+
+    return jsonify({'message': '菜品删除成功'})
+
 @app.route('/api/tags', methods=['GET'])
 def get_tags():
     conn = get_db_connection()
