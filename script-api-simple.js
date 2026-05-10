@@ -631,6 +631,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderDishes(allDishes, false);
     });
 
+    const editPanel = document.getElementById('edit-panel');
+    const editClose = document.getElementById('edit-close');
+    
     editClose?.addEventListener('click', () => {
         editPanel.classList.remove('active');
         editingDishId = null;
@@ -647,14 +650,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     cartButton?.addEventListener('click', openCart);
     cartClose?.addEventListener('click', closeCart);
     checkoutButton?.addEventListener('click', checkout);
-
-    const editPanel = document.getElementById('edit-panel');
-    const editClose = document.getElementById('edit-close');
-    
-    editClose?.addEventListener('click', () => {
-        editPanel.classList.remove('active');
-        editingDishId = null;
-    });
 
     document.getElementById('edit-dish-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();

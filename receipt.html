@@ -292,11 +292,15 @@
             orderData['订单详情'].forEach(item => {
                 const row = document.createElement('div');
                 row.className = 'table-row';
+                const name = item['名称'] || item['菜品名称'] || '';
+                const quantity = item['数量'] || item['菜品数量'] || 0;
+                const price = item['单价'] || item['菜品单价'] || 0;
+                const subtotal = item['小计金额'] || 0;
                 row.innerHTML = `
-                    <span class="name">${item['菜品名称']}</span>
-                    <span class="quantity">${item['菜品数量']}</span>
-                    <span class="price">¥${item['菜品单价']}</span>
-                    <span class="subtotal">¥${item['小计金额']}</span>
+                    <span class="name">${name}</span>
+                    <span class="quantity">${quantity}</span>
+                    <span class="price">¥${price}</span>
+                    <span class="subtotal">¥${subtotal}</span>
                 `;
                 orderItems.appendChild(row);
             });

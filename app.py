@@ -118,6 +118,13 @@ def get_dishes():
     for dish in all_dishes:
         dish_id = dish['id']
         tags = []
+        
+        if 'detail_description' in dish and dish['detail_description']:
+            dish['detail_desc'] = dish['detail_description']
+        if 'method_desc' in dish and dish['method_desc']:
+            dish['method'] = dish['method_desc']
+        if 'ingredients_desc' in dish and dish['ingredients_desc']:
+            dish['ingredients'] = dish['ingredients_desc']
 
         if dish_id in dish_tags_map:
             tags = dish_tags_map[dish_id]
@@ -168,6 +175,13 @@ def get_dish(dish_id):
         return jsonify({'error': '菜品不存在'}), 404
 
     dish = dict(dish)
+    if 'detail_description' in dish and dish['detail_description']:
+        dish['detail_desc'] = dish['detail_description']
+    if 'method_desc' in dish and dish['method_desc']:
+        dish['method'] = dish['method_desc']
+    if 'ingredients_desc' in dish and dish['ingredients_desc']:
+        dish['ingredients'] = dish['ingredients_desc']
+    
     tag_cache, dish_tags_map = get_tag_caches()
 
     tags = dish_tags_map.get(dish_id, [])
