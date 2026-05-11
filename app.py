@@ -223,26 +223,87 @@ def update_dish(dish_id):
         conn.close()
         return jsonify({'error': '菜品不存在'}), 404
 
-    cursor.execute('''
-        UPDATE dishes
-        SET name = %s, price = %s, image = %s, description = %s, detail_description = %s, method = %s, ingredients = %s
-        WHERE id = %s
-    ''', (
-        data.get('name'),
-        data.get('price'),
-        data.get('image', ''),
-        data.get('description', ''),
-        data.get('detail_desc', ''),
-        data.get('method', ''),
-        data.get('ingredients', ''),
-        dish_id
-    ))
+    cursor.execute('DESCRIBE dishes')
+    dish_fields = [f['Field'] for f in cursor.fetchall()]
+    
+    update_fields = []
+    update_values = []
+    
+    if 'name' in dish_fields:
+        update_fields.append('name = %s')
+        update_values.append(data.get('name'))
+    if 'price' in dish_fields:
+        update_fields.append('price = %s')
+        update_values.append(data.get('price'))
+    if 'image' in dish_fields:
+        update_fields.append('image = %s')
+        update_values.append(data.get('image', ''))
+    if 'description' in dish_fields:
+        update_fields.append('description = %s')
+        update_values.append(data.get('description', ''))
+    if 'detail_description' in dish_fields:
+        update_fields.append('detail_description = %s')
+        update_values.append(data.get('detail_desc', ''))
+    if 'method_desc' in dish_fields:
+        update_fields.append('method_desc = %s')
+        update_values.append(data.get('method', ''))
+    if 'ingredients_desc' in dish_fields:
+        update_fields.append('ingredients_desc = %s')
+        update_values.append(data.get('ingredients', ''))
 
-    _dish_tags_cache = None
+    if update_fields:
+        sql = f"UPDATE dishes SET {', '.join(update_fields)} WHERE id = %s"
+        update_values.append(dish_id)
+        cursor.execute(sql, tuple(update_values))
+
+    new_tags_str = data.get('tags', '') or ''
+    new_tags_set = set(t.strip() for t in new_tags_str.split(',') if t.strip())
+    
+    tags_changed = False
+    try:
+        cursor.execute("SHOW TABLES LIKE 'taglink'")
+        if cursor.fetchone():
+            cursor.execute("DESCRIBE taglink")
+            fields = [f['Field'] for f in cursor.fetchall()]
+            dish_field = next((fn for fn in fields if 'dish' in fn.lower()), None)
+            tag_field = next((fn for fn in fields if 'tag' in fn.lower()), None)
+            
+            if dish_field and tag_field:
+                cursor.execute(f'''
+                    SELECT t.name FROM taglink tl 
+                    JOIN tags t ON tl.{tag_field} = t.id 
+                    WHERE tl.{dish_field} = %s
+                ''', (dish_id,))
+                old_tags_list = cursor.fetchall()
+                old_tags_set = set(t['name'] for t in old_tags_list)
+                
+                if old_tags_set != new_tags_set:
+                    tags_changed = True
+                
+                if tags_changed:
+                    cursor.execute(f'DELETE FROM taglink WHERE {dish_field} = %s', (dish_id,))
+                    print(f"删除菜品 {dish_id} 的所有标签关联")
+                    cursor.execute('SELECT id, name FROM tags')
+                    all_tags_in_db = cursor.fetchall()
+                    tag_id_map = {tag['name']: tag['id'] for tag in all_tags_in_db}
+                    
+                    for tag_name in new_tags_set:
+                        if tag_name in tag_id_map:
+                            tag_id = tag_id_map[tag_name]
+                            cursor.execute(f'INSERT INTO taglink ({dish_field}, {tag_field}) VALUES (%s, %s)', (dish_id, tag_id))
+                    
+                    print(f"菜品 {dish_id} 标签已更新，同步操作 taglink 表")
+    except Exception as e:
+        print(f"更新 taglink 失败: {e}")
+
+    if tags_changed:
+        _tag_cache = None
+        _dish_tags_cache = None
+    
     conn.commit()
     conn.close()
 
-    return jsonify({'message': '菜品更新成功'})
+    return jsonify({'message': '更新成功'})
 
 @app.route('/api/dishes/<int:dish_id>', methods=['DELETE'])
 def delete_dish(dish_id):
@@ -261,7 +322,7 @@ def delete_dish(dish_id):
     conn.commit()
     conn.close()
 
-    return jsonify({'message': '菜品删除成功'})
+    return jsonify({'message': '删除成功'})
 
 @app.route('/api/tags', methods=['GET'])
 def get_tags():
