@@ -17,6 +17,11 @@ def serve_index():
 def serve_static(path):
     return send_from_directory('.', path)
 
+@app.route('/api/health')
+def health_check():
+    return jsonify({'status': 'ok', 'message': 'Server is running'})
+
+# 数据库配置,读取.env文件,无数据返回默认值
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'sh-cynosdbmysql-grp-d2dhhovq.sql.tencentcdb.com'),
     'port': int(os.getenv('DB_PORT', 23841)),
@@ -391,4 +396,4 @@ def refresh_cache():
     return jsonify({'message': '缓存已刷新'})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=15431, debug=True)
