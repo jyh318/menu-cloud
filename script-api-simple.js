@@ -719,8 +719,9 @@ function closeCart() {
 
 /**
  * 结算功能
+ * 调用后端API创建订单并结算
  */
-function checkout() {
+async function checkout() {
     if (cart.length === 0) {
         alert('购物车是空的');
         return;
@@ -729,26 +730,75 @@ function checkout() {
     // 计算总价
     const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // 构建订单数据
-    const orderData = {
-        '订单详情': cart.map(item => ({
-            '名称': item.name,
-            '单价': item.price,
-            '数量': item.quantity,
-            '小计金额': item.price * item.quantity
-        })),
-        '合计金额': totalPrice.toFixed(2)
-    };
+    try {
+        // 显示加载状态
+        const checkoutBtn = document.getElementById('checkout-button');
+        const originalText = checkoutBtn?.textContent;
+        checkoutBtn.textContent = '处理中...';
+        checkoutBtn.disabled = true;
 
-    // 跳转到收据页面
-    const orderJson = encodeURIComponent(JSON.stringify(orderData));
-    window.location.href = `receipt.html?order=${orderJson}`;
+        // 1. 创建订单 - 调用后端 API
+        const createResponse = await fetch(`${API_BASE_URL}/order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: cart.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    quantity: item.quantity
+                })),
+                total: totalPrice
+            })
+        });
 
-    // 清空购物车
-    cart = [];
-    localStorage.setItem('cart', JSON.stringify(cart));
-    updateCartDisplay();
-    closeCart();
+        if (!createResponse.ok) {
+            throw new Error('创建订单失败');
+        }
+
+        const createResult = await createResponse.json();
+        const orderId = createResult.order_id;
+
+        // 2. 结算订单 - 调用后端 API
+        const checkoutResponse = await fetch(`${API_BASE_URL}/order/${orderId}/checkout`, {
+            method: 'POST'
+        });
+
+        if (!checkoutResponse.ok) {
+            throw new Error('结算失败');
+        }
+
+        // 构建订单数据用于收据页面
+        const orderData = {
+            '订单ID': orderId,
+            '订单详情': cart.map(item => ({
+                '名称': item.name,
+                '单价': item.price,
+                '数量': item.quantity,
+                '小计金额': item.price * item.quantity
+            })),
+            '合计金额': totalPrice.toFixed(2)
+        };
+
+        // 跳转到收据页面
+        const orderJson = encodeURIComponent(JSON.stringify(orderData));
+        window.location.href = `receipt.html?order=${orderJson}`;
+
+        // 清空购物车
+        cart = [];
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartDisplay();
+        closeCart();
+
+    } catch (error) {
+        console.error('结算失败:', error);
+        alert('结算失败，请重试');
+    } finally {
+        // 恢复按钮状态
+        const checkoutBtn = document.getElementById('checkout-button');
+        checkoutBtn.textContent = '去结算';
+        checkoutBtn.disabled = false;
+    }
 }
 
 // ==================== 菜品详情 ====================

@@ -9,15 +9,30 @@
 @date 2026-05-19
 
 功能：
-1. 创建订单（点菜）
+1. 创建订单（点菜）- 写入 mu_order 和 mu_orderlink 表
 2. 结算订单
+3. 查询订单列表
+4. 查询单个订单详情
 """
 
 from flask import jsonify, request
 from dataconf import get_db_connection
 from logconfig import log_config
+import uuid
+import time
 
 logger = log_config()
+
+# ==================== 辅助函数 ====================
+
+def generate_order_number():
+    """
+    生成唯一的订单编号
+    格式：OD + 时间戳 + 随机字符串
+    """
+    timestamp = int(time.time())
+    random_str = str(uuid.uuid4()).replace('-', '')[:8]
+    return f"OD{timestamp}{random_str}"
 
 # ==================== API路由函数 ====================
 
@@ -31,38 +46,44 @@ def create_order():
     
     返回：
     - order_id: 订单ID
+    - order_number: 订单编号
     - message: 下单成功消息
     """
     data = request.json
     items = data.get('items', [])
     total = data.get('total', 0)
     
-    logger.info(f"点菜 - 订单数据: {items}, 总价: {total}")
+    logger.info(f"创建订单 - 菜品数量: {len(items)}, 总价: {total}")
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
+        # 生成订单编号
+        order_number = generate_order_number()
+        current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+
+        # 插入 mu_order 表
         cursor.execute('''
-            INSERT INTO orders (total_amount, status, created_at)
-            VALUES (%s, %s, NOW())
-        ''', (total, 'pending'))
+            INSERT INTO mu_order (odnum, oddate, heji)
+            VALUES (%s, %s, %s)
+        ''', (order_number, current_time, int(total)))
 
-        order_id = cursor.lastrowid
-
+        # 插入 mu_orderlink 表
         for item in items:
             cursor.execute('''
-                INSERT INTO order_items (order_id, dish_id, dish_name, price, quantity)
-                VALUES (%s, %s, %s, %s, %s)
-            ''', (order_id, item.get('id'), item.get('name'), item.get('price'), item.get('quantity')))
+                INSERT INTO mu_orderlink (odnum, disid, coun, danjia)
+                VALUES (%s, %s, %s, %s)
+            ''', (order_number, item.get('id'), item.get('quantity'), int(item.get('price'))))
 
         conn.commit()
         conn.close()
 
-        logger.info(f"点菜成功 - 订单ID: {order_id}, 菜品数量: {len(items)}, 总价: {total}")
-        return jsonify({'order_id': order_id, 'message': '下单成功'}), 201
+        logger.info(f"创建订单成功 - 订单编号: {order_number}, 总价: {total}")
+        return jsonify({'order_id': order_number, 'order_number': order_number, 'message': '下单成功'}), 201
+        
     except Exception as e:
-        logger.error(f"点菜失败 - 错误: {e}")
+        logger.error(f"创建订单失败 - 错误: {e}")
         conn.close()
         return jsonify({'error': '下单失败'}), 500
 
@@ -71,30 +92,121 @@ def checkout_order(order_id):
     结算订单
     
     请求参数：
-    - order_id: 订单ID（URL参数）
+    - order_id: 订单编号（URL参数）
     
     返回：
     - message: 结算成功消息
     """
-    logger.info(f"结算订单 - 订单ID: {order_id}")
+    logger.info(f"结算订单 - 订单编号: {order_id}")
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute('SELECT * FROM orders WHERE id = %s', (order_id,))
+    # 检查订单是否存在
+    cursor.execute('SELECT * FROM mu_order WHERE odnum = %s', (order_id,))
     order = cursor.fetchone()
     
     if order is None:
         conn.close()
-        logger.warning(f"结算订单失败 - 订单ID: {order_id} 不存在")
+        logger.warning(f"结算订单失败 - 订单编号: {order_id} 不存在")
         return jsonify({'error': '订单不存在'}), 404
 
-    cursor.execute('UPDATE orders SET status = %s WHERE id = %s', ('completed', order_id))
     conn.commit()
     conn.close()
 
-    logger.info(f"结算订单成功 - 订单ID: {order_id}, 订单状态: 已完成")
-    return jsonify({'message': '结算成功'})
+    logger.info(f"结算订单成功 - 订单编号: {order_id}")
+    return jsonify({'message': '结算成功', 'order_number': order_id})
+
+def get_order_list():
+    """
+    获取订单列表
+    
+    请求参数：
+    - page: 页码（默认0）
+    - page_size: 每页数量（默认10）
+    
+    返回：
+    - orders: 订单列表
+    - total: 总数
+    """
+    page = request.args.get('page', 0, type=int)
+    page_size = request.args.get('page_size', 10, type=int)
+
+    logger.info(f"查询订单列表 - 页码: {page}, 每页数量: {page_size}")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM mu_order ORDER BY oddate DESC')
+    all_orders = [dict(row) for row in cursor.fetchall()]
+    
+    conn.close()
+
+    total = len(all_orders)
+    start = page * page_size
+    end = start + page_size
+    orders = all_orders[start:end]
+
+    logger.info(f"查询订单列表成功 - 总数: {total}, 返回数量: {len(orders)}")
+
+    return jsonify({
+        'orders': orders,
+        'total': total,
+        'page': page,
+        'page_size': page_size,
+        'has_more': end < total
+    })
+
+def get_order_detail(order_id):
+    """
+    获取订单详情
+    
+    请求参数：
+    - order_id: 订单编号（URL参数）
+    
+    返回：
+    - order: 订单信息
+    - items: 订单菜品列表
+    """
+    logger.info(f"查询订单详情 - 订单编号: {order_id}")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # 获取订单基本信息
+    cursor.execute('SELECT * FROM mu_order WHERE odnum = %s', (order_id,))
+    order = cursor.fetchone()
+    
+    if order is None:
+        conn.close()
+        logger.warning(f"查询订单详情失败 - 订单编号: {order_id} 不存在")
+        return jsonify({'error': '订单不存在'}), 404
+
+    order = dict(order)
+
+    # 获取订单菜品列表
+    cursor.execute('SELECT * FROM mu_orderlink WHERE odnum = %s', (order_id,))
+    order_items = [dict(row) for row in cursor.fetchall()]
+
+    conn.close()
+
+    # 获取菜品名称
+    for item in order_items:
+        dish_id = item.get('disid')
+        conn_temp = get_db_connection()
+        cursor_temp = conn_temp.cursor()
+        cursor_temp.execute('SELECT name FROM dishes WHERE id = %s', (dish_id,))
+        dish = cursor_temp.fetchone()
+        if dish:
+            item['dish_name'] = dish['name']
+        conn_temp.close()
+
+    logger.info(f"查询订单详情成功 - 订单编号: {order_id}, 菜品数量: {len(order_items)}")
+
+    return jsonify({
+        'order': order,
+        'items': order_items
+    })
 
 # ==================== 注册路由 ====================
 
@@ -106,4 +218,6 @@ def register_order_routes(app):
     - app: Flask应用实例
     """
     app.route('/api/order', methods=['POST'])(create_order)
-    app.route('/api/order/<int:order_id>/checkout', methods=['POST'])(checkout_order)
+    app.route('/api/order/<order_id>/checkout', methods=['POST'])(checkout_order)
+    app.route('/api/orders', methods=['GET'])(get_order_list)
+    app.route('/api/order/<order_id>', methods=['GET'])(get_order_detail)

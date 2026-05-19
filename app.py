@@ -27,16 +27,21 @@
 - Flask-CORS 跨域支持
 """
 
+# ==================== 设置路径 ====================
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 # ==================== 导入模块 ====================
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 from logconfig import log_config
 
 # 导入路由模块
 from routes_dish import register_dish_routes
 from routes_tag import register_tag_routes
-from routes_order import register_order_routes
+from routes_order import create_order, checkout_order, get_order_list, get_order_detail
 
 # ==================== 应用初始化 ====================
 
@@ -74,11 +79,28 @@ def health_check():
     logger.info('健康检查')
     return jsonify({'status': 'ok', 'message': 'Server is running'})
 
+# ==================== 订单管理路由 ====================
+
+@app.route('/api/order', methods=['POST'])
+def create_order_route():
+    return create_order()
+
+@app.route('/api/order/<order_id>/checkout', methods=['POST'])
+def checkout_order_route(order_id):
+    return checkout_order(order_id)
+
+@app.route('/api/orders', methods=['GET'])
+def get_order_list_route():
+    return get_order_list()
+
+@app.route('/api/order/<order_id>', methods=['GET'])
+def get_order_detail_route(order_id):
+    return get_order_detail(order_id)
+
 # ==================== 注册路由 ====================
 
 register_dish_routes(app)
 register_tag_routes(app)
-register_order_routes(app)
 
 # ==================== 应用启动 ====================
 

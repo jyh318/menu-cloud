@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>订单管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .header {
+            background-color: #7A77B9;
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .header a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .header a:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .order-list {
+            display: grid;
+            gap: 16px;
+        }
+
+        .order-card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            transition: box-shadow 0.3s;
+        }
+
+        .order-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .order-number {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .order-date {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .order-total {
+            font-size: 20px;
+            font-weight: 700;
+            color: #E53935;
+        }
+
+        .order-items {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+
+        .order-item-name {
+            color: #333;
+        }
+
+        .order-item-info {
+            color: #666;
+        }
+
+        .order-detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .order-detail-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background-color: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            color: #999;
+        }
+
+        .modal-close:hover {
+            background-color: #eee;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-info {
+            margin-bottom: 16px;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .modal-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 14px;
+        }
+
+        .modal-info-label {
+            color: #999;
+        }
+
+        .modal-info-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .modal-items {
+            margin-top: 16px;
+        }
+
+        .modal-items h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .modal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .modal-item:last-child {
+            border-bottom: none;
+        }
+
+        .modal-item-name {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .modal-item-price {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .modal-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            margin-top: 16px;
+            border-top: 2px solid #7A77B9;
+            font-size: 18px;
+        }
+
+        .modal-total-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .modal-total-value {
+            font-weight: 700;
+            color: #E53935;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state img {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>订单管理</h1>
+        <a href="index.html">返回首页</a>
+    </div>
+
+    <div class="container">
+        <div class="order-list" id="order-list">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+
+    <div class="order-detail-modal" id="order-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>订单详情</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = '/api';
+        let orders = [];
+
+        async function fetchOrders() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/orders`);
+                const data = await response.json();
+                orders = data.orders || [];
+                renderOrders();
+            } catch (error) {
+                console.error('获取订单失败:', error);
+                document.getElementById('order-list').innerHTML = '<div class="empty-state"><p>获取订单失败，请稍后重试</p></div>';
+            }
+        }
+
+        function renderOrders() {
+            const orderList = document.getElementById('order-list');
+
+            if (orders.length === 0) {
+                orderList.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
+                        <p>暂无订单记录</p>
+                    </div>
+                `;
+                return;
+            }
+
+            orderList.innerHTML = orders.map(order => `
+                <div class="order-card" onclick="showOrderDetail('${order.odnum}')">
+                    <div class="order-header">
+                        <div>
+                            <div class="order-number">订单编号: ${order.odnum}</div>
+                            <div class="order-date">下单时间: ${order.oddate}</div>
+                        </div>
+                        <div class="order-total">¥${order.heji}</div>
+                    </div>
+                    <div class="order-items">
+                        <div class="order-item">
+                            <span class="order-item-name">点击查看订单详情</span>
+                            <span class="order-item-info">→</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function showOrderDetail(orderNumber) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/order/${orderNumber}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                const order = data.order;
+                const items = data.items;
+
+                document.getElementById('modal-body').innerHTML = `
+                    <div class="modal-info">
+                        <div class="modal-info-row">
+                            <span class="modal-info-label">订单编号</span>
+                            <span class="modal-info-value">${order.odnum}</span>
+                        </div>
+                        <div class="modal-info-row">
+                            <span class="modal-info-label">下单时间</span>
+                            <span class="modal-info-value">${order.oddate}</span>
+                        </div>
+                    </div>
+
+                    <div class="modal-items">
+                        <h3>菜品明细</h3>
+                        ${items.map(item => `
+                            <div class="modal-item">
+                                <div>
+                                    <div class="modal-item-name">${item.dish_name || `菜品ID: ${item.disid}`}</div>
+                                    <div style="font-size: 12px; color: #999;">单价: ¥${item.danjia} x ${item.coun}</div>
+                                </div>
+                                <div class="modal-item-price">¥${item.danjia * item.coun}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="modal-total">
+                        <span class="modal-total-label">合计金额</span>
+                        <span class="modal-total-value">¥${order.heji}</span>
+                    </div>
+                `;
+
+                document.getElementById('order-modal').classList.add('active');
+            } catch (error) {
+                console.error('获取订单详情失败:', error);
+                alert('获取订单详情失败');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('order-modal').classList.remove('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchOrders);
+
+        document.getElementById('order-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
