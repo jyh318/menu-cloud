@@ -737,6 +737,9 @@ async function checkout() {
         checkoutBtn.textContent = '处理中...';
         checkoutBtn.disabled = true;
 
+        const noteInput = document.getElementById('cart-note-input');
+        const note = noteInput?.value?.trim() || '';
+
         // 1. 创建订单 - 调用后端 API
         const createResponse = await fetch(`${API_BASE_URL}/order`, {
             method: 'POST',
@@ -748,7 +751,8 @@ async function checkout() {
                     price: item.price,
                     quantity: item.quantity
                 })),
-                total: totalPrice
+                total: totalPrice,
+                note: note
             })
         });
 
@@ -777,6 +781,7 @@ async function checkout() {
                 '数量': item.quantity,
                 '小计金额': item.price * item.quantity
             })),
+            '备注': note,
             '合计金额': totalPrice.toFixed(2)
         };
 

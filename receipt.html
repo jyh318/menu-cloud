@@ -125,6 +125,24 @@
             font-weight: 500;
         }
 
+        .note-section {
+            margin-bottom: 10px;
+            padding-top: 10px;
+        }
+
+        .note-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .note-content {
+            flex: 1;
+            word-break: break-all;
+        }
+
         .total-section {
             margin-top: 20px;
         }
@@ -273,6 +291,13 @@
 
             <div class="full-line"></div>
 
+            <div class="note-section" id="note-section" style="display: none;">
+                <div class="note-row">
+                    <span class="label">备注:</span>
+                    <span class="note-content" id="note-content"></span>
+                </div>
+            </div>
+
             <div class="total-section">
                 <div class="total-row">
                     <span class="label">合计金额:</span>
@@ -338,6 +363,16 @@
             document.getElementById('order-no').textContent = receiptInfo.order_number;
             document.getElementById('waiter').textContent = '仙仙的饲养员';
             document.getElementById('total-amount').textContent = `¥${orderData['合计金额']}`;
+
+            const noteSection = document.getElementById('note-section');
+            const noteContent = document.getElementById('note-content');
+            const note = orderData['备注'] || '';
+            if (note) {
+                noteContent.textContent = note;
+                noteSection.style.display = 'block';
+            } else {
+                noteSection.style.display = 'none';
+            }
 
             orderData['订单详情'].forEach(item => {
                 const row = document.createElement('div');

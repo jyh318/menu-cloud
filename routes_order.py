@@ -20,6 +20,7 @@ from dataconf import get_db_connection
 from logconfig import log_config
 import uuid
 import time
+import sys
 
 logger = log_config()
 
@@ -53,7 +54,24 @@ def create_order():
     items = data.get('items', [])
     total = data.get('total', 0)
     
-    logger.info(f"创建订单 - 菜品数量: {len(items)}, 总价: {total}")
+    note = data.get('note', '')
+    
+    # 调试：打印原始数据
+    logger.info("DEBUG - raw note type: %s" % type(note))
+    logger.info("DEBUG - raw note repr: %s" % repr(note))
+    
+    # 处理中文备注
+    if note:
+        try:
+            note_str = str(note).encode('utf-8').decode('utf-8')
+        except Exception as e:
+            logger.info("DEBUG - encoding error: %s" % str(e))
+            note_str = str(note)
+    else:
+        note_str = ''
+    
+    logger.info("DEBUG - note_str: %s" % repr(note_str))
+    logger.info("创建订单 - 菜品数量: %d, 总价: %s, 备注: %s" % (len(items), total, note_str))
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -63,11 +81,19 @@ def create_order():
         order_number = generate_order_number()
         current_time = time.strftime('%Y-%m-%d %H:%M:%S')
 
-        # 插入 mu_order 表
-        cursor.execute('''
-            INSERT INTO mu_order (odnum, oddate, heji)
-            VALUES (%s, %s, %s)
-        ''', (order_number, current_time, int(total)))
+        # 插入 mu_order 表（支持备注字段）
+        try:
+            cursor.execute('''
+                INSERT INTO mu_order (odnum, oddate, heji, remark)
+                VALUES (%s, %s, %s, %s)
+            ''', (order_number, current_time, int(total), note_str))
+            logger.info("订单插入成功（带备注字段）- 订单编号: %s" % order_number)
+        except Exception as e:
+            logger.warning("带备注字段插入失败，尝试不带备注: %s" % str(e))
+            cursor.execute('''
+                INSERT INTO mu_order (odnum, oddate, heji)
+                VALUES (%s, %s, %s)
+            ''', (order_number, current_time, int(total)))
 
         # 插入 mu_orderlink 表
         for item in items:
@@ -79,11 +105,11 @@ def create_order():
         conn.commit()
         conn.close()
 
-        logger.info(f"创建订单成功 - 订单编号: {order_number}, 总价: {total}")
+        logger.info("创建订单成功 - 订单编号: %s, 总价: %s" % (order_number, total))
         return jsonify({'order_id': order_number, 'order_number': order_number, 'message': '下单成功'}), 201
         
     except Exception as e:
-        logger.error(f"创建订单失败 - 错误: {e}")
+        logger.error("创建订单失败 - 错误: %s" % str(e))
         conn.close()
         return jsonify({'error': '下单失败'}), 500
 
@@ -97,7 +123,7 @@ def checkout_order(order_id):
     返回：
     - message: 结算成功消息
     """
-    logger.info(f"结算订单 - 订单编号: {order_id}")
+    logger.info("结算订单 - 订单编号: %s" % order_id)
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -108,13 +134,13 @@ def checkout_order(order_id):
     
     if order is None:
         conn.close()
-        logger.warning(f"结算订单失败 - 订单编号: {order_id} 不存在")
+        logger.warning("结算订单失败 - 订单编号: %s 不存在" % order_id)
         return jsonify({'error': '订单不存在'}), 404
 
     conn.commit()
     conn.close()
 
-    logger.info(f"结算订单成功 - 订单编号: {order_id}")
+    logger.info("结算订单成功 - 订单编号: %s" % order_id)
     return jsonify({'message': '结算成功', 'order_number': order_id})
 
 def get_order_list():
@@ -132,7 +158,7 @@ def get_order_list():
     page = request.args.get('page', 0, type=int)
     page_size = request.args.get('page_size', 10, type=int)
 
-    logger.info(f"查询订单列表 - 页码: {page}, 每页数量: {page_size}")
+    logger.info("查询订单列表 - 页码: %d, 每页数量: %d" % (page, page_size))
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -147,7 +173,7 @@ def get_order_list():
     end = start + page_size
     orders = all_orders[start:end]
 
-    logger.info(f"查询订单列表成功 - 总数: {total}, 返回数量: {len(orders)}")
+    logger.info("查询订单列表成功 - 总数: %d, 返回数量: %d" % (total, len(orders)))
 
     return jsonify({
         'orders': orders,
@@ -168,7 +194,7 @@ def get_order_detail(order_id):
     - order: 订单信息
     - items: 订单菜品列表
     """
-    logger.info(f"查询订单详情 - 订单编号: {order_id}")
+    logger.info("查询订单详情 - 订单编号: %s" % order_id)
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -179,7 +205,7 @@ def get_order_detail(order_id):
     
     if order is None:
         conn.close()
-        logger.warning(f"查询订单详情失败 - 订单编号: {order_id} 不存在")
+        logger.warning("查询订单详情失败 - 订单编号: %s 不存在" % order_id)
         return jsonify({'error': '订单不存在'}), 404
 
     order = dict(order)
@@ -201,7 +227,7 @@ def get_order_detail(order_id):
             item['dish_name'] = dish['name']
         conn_temp.close()
 
-    logger.info(f"查询订单详情成功 - 订单编号: {order_id}, 菜品数量: {len(order_items)}")
+    logger.info("查询订单详情成功 - 订单编号: %s, 菜品数量: %d" % (order_id, len(order_items)))
 
     return jsonify({
         'order': order,
@@ -234,7 +260,7 @@ def get_receipt_info():
     order_number = generate_order_number()
     order_date = time.strftime('%Y-%m-%d %H:%M:%S')
 
-    logger.info(f"生成小票信息 - 订单编号: {order_number}, 日期: {order_date}")
+    logger.info("生成小票信息 - 订单编号: %s, 日期: %s" % (order_number, order_date))
 
     return jsonify({
         'order_number': order_number,

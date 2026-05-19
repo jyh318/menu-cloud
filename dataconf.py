@@ -33,7 +33,9 @@ DB_CONFIG = {
     'password': os.getenv('DB_PASSWORD', 'menu.123'),
     'db': os.getenv('DB_NAME', 'room-d0gyj4jwe761aa259'),
     'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
-    'cursorclass': pymysql.cursors.DictCursor
+    'cursorclass': pymysql.cursors.DictCursor,
+    'use_unicode': True,
+    'init_command': 'SET NAMES utf8mb4'
 }
 
 def get_db_connection():
@@ -128,4 +130,3 @@ def clear_dish_tags_cache():
     """
     global _dish_tags_cache
     _dish_tags_cache = None
-

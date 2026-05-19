@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>备注功能测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+        }
+        button {
+            background-color: #7A77B9;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #6B69A6;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <h1>备注功能测试</h1>
+
+    <div class="test-section">
+        <h3>1. 创建测试订单</h3>
+        <div>
+            <label>备注内容：</label>
+            <textarea id="test-note" rows="3" placeholder="请输入测试备注">少放辣，不要香菜</textarea>
+        </div>
+        <div>
+            <button onclick="createTestOrder()">创建订单</button>
+        </div>
+        <div id="create-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. 查询所有订单</h3>
+        <button onclick="queryOrders()">刷新订单列表</button>
+        <div id="orders-list"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. 测试说明</h3>
+        <p>点击"创建订单"按钮创建一个带备注的测试订单，然后点击"刷新订单列表"查看是否正确显示备注。</p>
+    </div>
+
+    <script>
+        async function createTestOrder() {
+            const note = document.getElementById('test-note').value;
+            const resultDiv = document.getElementById('create-result');
+
+            const orderData = {
+                items: [
+                    { id: 1, name: '宫保鸡丁', price: 28, quantity: 1 },
+                    { id: 2, name: '鱼香肉丝', price: 25, quantity: 2 }
+                ],
+                total: 78,
+                note: note
+            };
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = '正在创建订单...';
+
+            try {
+                const response = await fetch('http://127.0.0.1/api/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+
+                const data = await response.json();
+                console.log('创建订单响应:', data);
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>订单创建成功！</strong>\n订单号: ${data.order_id}\n消息: ${data.message}\n\n你可以刷新订单页面查看是否正确显示备注。`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `创建失败: ${JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+
+        async function queryOrders() {
+            const listDiv = document.getElementById('orders-list');
+            listDiv.innerHTML = '正在加载...';
+
+            try {
+                const response = await fetch('http://127.0.0.1/api/orders');
+                const data = await response.json();
+
+                if (data.orders && data.orders.length > 0) {
+                    let html = '<table style="width:100%; border-collapse: collapse; margin-top: 10px;">';
+                    html += '<tr style="background:#f0f0f0;"><th style="padding:8px; border:1px solid #ddd;">订单号</th><th style="padding:8px; border:1px solid #ddd;">金额</th><th style="padding:8px; border:1px solid #ddd;">备注</th></tr>';
+
+                    data.orders.forEach(order => {
+                        const remark = order.remark || order.beizhu || '(无)';
+                        html += `<tr><td style="padding:8px; border:1px solid #ddd;">${order.odnum}</td><td style="padding:8px; border:1px solid #ddd;">¥${order.heji}</td><td style="padding:8px; border:1px solid #ddd;">${remark}</td></tr>`;
+                    });
+
+                    html += '</table>';
+                    listDiv.innerHTML = html;
+                } else {
+                    listDiv.innerHTML = '<p>暂无订单</p>';
+                }
+            } catch (error) {
+                listDiv.innerHTML = `<p style="color:red;">加载失败: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
