@@ -166,10 +166,7 @@
         }
 
         .print-btn {
-            display: block;
-            width: 100%;
-            max-width: 200px;
-            margin: 20px auto 0;
+            width: calc((400px - 10px) / 2);
             padding: 12px 24px;
             background-color: #ff6b6b;
             color: white;
@@ -178,6 +175,41 @@
             font-size: 16px;
             cursor: pointer;
             transition: all 0.3s ease;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: calc((400px - 10px) / 2);
+            height: 44px;
+            padding: 0 24px;
+            background-color: #7A77B9;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-family: inherit;
+            font-weight: normal;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+            line-height: 1;
+        }
+
+        .back-btn:hover {
+            background-color: #6B69A6;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(122, 119, 185, 0.3);
+        }
+
+        .btn-container {
+            width: 400px;
+            max-width: 100%;
+            margin: 20px auto 0;
+            display: flex;
+            gap: 10px;
         }
 
         .print-btn:hover {
@@ -198,7 +230,7 @@
                 width: 100%;
             }
             
-            .print-btn {
+            .print-btn, .back-btn {
                 display: none;
             }
         }
@@ -256,26 +288,43 @@
         </div>
     </div>
 
-    <button class="print-btn" onclick="window.print()">打印小票</button>
+    <div class="btn-container">
+        <button class="print-btn" onclick="window.print()">打印小票</button>
+        <a href="index.html" class="back-btn">返回首页</a>
+    </div>
 
     <script>
+        function generateOrderNo() {
+            const timestamp = Date.now().toString();
+            const random = Math.random().toString(36).substr(2, 8).toUpperCase();
+            return `OD-${timestamp}${random}`;
+        }
+
         function formatDate(date) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${minutes}`;
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
         }
 
-        function generateOrderNo() {
-            const date = new Date();
-            const timestamp = date.getTime().toString().slice(-8);
-            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-            return `XJ${timestamp}${random}`;
+        async function fetchReceiptInfo() {
+            try {
+                const response = await fetch('/api/receipt/info');
+                const data = await response.json();
+                return data;
+            } catch (e) {
+                console.error('获取小票信息失败:', e);
+                return {
+                    order_number: generateOrderNo(),
+                    order_date: formatDate(new Date())
+                };
+            }
         }
 
-        function renderReceipt(orderData) {
+        async function renderReceipt(orderData) {
             const orderItems = document.getElementById('order-items');
             orderItems.innerHTML = '';
 
@@ -284,8 +333,9 @@
                 return;
             }
 
-            document.getElementById('order-date').textContent = formatDate(new Date());
-            document.getElementById('order-no').textContent = generateOrderNo();
+            const receiptInfo = await fetchReceiptInfo();
+            document.getElementById('order-date').textContent = receiptInfo.order_date;
+            document.getElementById('order-no').textContent = receiptInfo.order_number;
             document.getElementById('waiter').textContent = '仙仙的饲养员';
             document.getElementById('total-amount').textContent = `¥${orderData['合计金额']}`;
 
@@ -309,7 +359,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const orderJson = urlParams.get('order');
-            
+
             if (orderJson) {
                 try {
                     const orderData = JSON.parse(decodeURIComponent(orderJson));

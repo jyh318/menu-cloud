@@ -32,7 +32,7 @@ def generate_order_number():
     """
     timestamp = int(time.time())
     random_str = str(uuid.uuid4()).replace('-', '')[:8]
-    return f"OD{timestamp}{random_str}"
+    return f"OD-{timestamp}{random_str.upper()}"
 
 # ==================== API路由函数 ====================
 
@@ -213,7 +213,7 @@ def get_order_detail(order_id):
 def register_order_routes(app):
     """
     注册订单管理相关路由
-    
+
     参数：
     - app: Flask应用实例
     """
@@ -221,3 +221,22 @@ def register_order_routes(app):
     app.route('/api/order/<order_id>/checkout', methods=['POST'])(checkout_order)
     app.route('/api/orders', methods=['GET'])(get_order_list)
     app.route('/api/order/<order_id>', methods=['GET'])(get_order_detail)
+    app.route('/api/receipt/info', methods=['GET'])(get_receipt_info)
+
+def get_receipt_info():
+    """
+    获取小票所需的订单编号和日期信息
+
+    返回：
+    - order_number: 订单编号
+    - order_date: 订单日期（格式：YYYY-MM-DD HH:MM:SS）
+    """
+    order_number = generate_order_number()
+    order_date = time.strftime('%Y-%m-%d %H:%M:%S')
+
+    logger.info(f"生成小票信息 - 订单编号: {order_number}, 日期: {order_date}")
+
+    return jsonify({
+        'order_number': order_number,
+        'order_date': order_date
+    })

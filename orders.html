@@ -312,6 +312,21 @@
         const API_BASE_URL = '/api';
         let orders = [];
 
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) {
+                return dateStr;
+            }
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+
         async function fetchOrders() {
             try {
                 const response = await fetch(`${API_BASE_URL}/orders`);
@@ -342,7 +357,7 @@
                     <div class="order-header">
                         <div>
                             <div class="order-number">订单编号: ${order.odnum}</div>
-                            <div class="order-date">下单时间: ${order.oddate}</div>
+                            <div class="order-date">下单时间: ${formatDate(order.oddate)}</div>
                         </div>
                         <div class="order-total">¥${order.heji}</div>
                     </div>
@@ -377,7 +392,7 @@
                         </div>
                         <div class="modal-info-row">
                             <span class="modal-info-label">下单时间</span>
-                            <span class="modal-info-value">${order.oddate}</span>
+                            <span class="modal-info-value">${formatDate(order.oddate)}</span>
                         </div>
                     </div>
 

@@ -97,6 +97,11 @@ def get_order_list_route():
 def get_order_detail_route(order_id):
     return get_order_detail(order_id)
 
+@app.route('/api/receipt/info', methods=['GET'])
+def get_receipt_info_route():
+    from routes_order import get_receipt_info
+    return get_receipt_info()
+
 # ==================== 注册路由 ====================
 
 register_dish_routes(app)
@@ -106,4 +111,4 @@ register_tag_routes(app)
 
 if __name__ == '__main__':
     logger.info('--------应用启动--------')
-    app.run(host='0.0.0.0', port=15431, debug=False)
+    app.run(host='0.0.0.0', port=80, debug=False)
