@@ -15,7 +15,7 @@
 4. 查询单个订单详情
 """
 
-from flask import jsonify, request
+from flask import jsonify, request, session
 from dataconf import get_db_connection
 from logconfig import log_config
 import uuid
@@ -56,6 +56,8 @@ def create_order():
     
     note = data.get('note', '')
     
+    creatuserid = session.get('user_id')
+    
     # 调试：打印原始数据
     logger.info("DEBUG - raw note type: %s" % type(note))
     logger.info("DEBUG - raw note repr: %s" % repr(note))
@@ -71,7 +73,7 @@ def create_order():
         note_str = ''
     
     logger.info("DEBUG - note_str: %s" % repr(note_str))
-    logger.info("创建订单 - 菜品数量: %d, 总价: %s, 备注: %s" % (len(items), total, note_str))
+    logger.info("创建订单 - 菜品数量: %d, 总价: %s, 备注: %s, 创建用户ID: %s" % (len(items), total, note_str, creatuserid))
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -81,19 +83,27 @@ def create_order():
         order_number = generate_order_number()
         current_time = time.strftime('%Y-%m-%d %H:%M:%S')
 
-        # 插入 mu_order 表（支持备注字段）
+        # 插入 mu_order 表（支持备注字段和创建用户ID）
         try:
             cursor.execute('''
-                INSERT INTO mu_order (odnum, oddate, heji, remark)
-                VALUES (%s, %s, %s, %s)
-            ''', (order_number, current_time, int(total), note_str))
-            logger.info("订单插入成功（带备注字段）- 订单编号: %s" % order_number)
+                INSERT INTO mu_order (odnum, oddate, heji, remark, creatuserid)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (order_number, current_time, int(total), note_str, creatuserid))
+            logger.info("订单插入成功（带备注字段和用户ID）- 订单编号: %s" % order_number)
         except Exception as e:
-            logger.warning("带备注字段插入失败，尝试不带备注: %s" % str(e))
-            cursor.execute('''
-                INSERT INTO mu_order (odnum, oddate, heji)
-                VALUES (%s, %s, %s)
-            ''', (order_number, current_time, int(total)))
+            logger.warning("带备注字段和用户ID插入失败，尝试不带备注: %s" % str(e))
+            try:
+                cursor.execute('''
+                    INSERT INTO mu_order (odnum, oddate, heji, creatuserid)
+                    VALUES (%s, %s, %s, %s)
+                ''', (order_number, current_time, int(total), creatuserid))
+                logger.info("订单插入成功（带用户ID）- 订单编号: %s" % order_number)
+            except Exception as e2:
+                logger.warning("带用户ID插入失败，尝试不带用户ID: %s" % str(e2))
+                cursor.execute('''
+                    INSERT INTO mu_order (odnum, oddate, heji)
+                    VALUES (%s, %s, %s)
+                ''', (order_number, current_time, int(total)))
 
         # 插入 mu_orderlink 表
         for item in items:
@@ -158,12 +168,28 @@ def get_order_list():
     page = request.args.get('page', 0, type=int)
     page_size = request.args.get('page_size', 10, type=int)
 
-    logger.info("查询订单列表 - 页码: %d, 每页数量: %d" % (page, page_size))
+    user_id = session.get('user_id')
+    is_admin = session.get('is_admin', 0)
+
+    logger.info("查询订单列表 - 页码: %d, 每页数量: %d, 用户ID: %s, 是否管理员: %d" % (page, page_size, user_id, is_admin))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute('SELECT * FROM mu_order ORDER BY oddate DESC')
+    if is_admin:
+        cursor.execute('SELECT * FROM mu_order ORDER BY oddate DESC')
+    elif user_id:
+        cursor.execute('SELECT * FROM mu_order WHERE creatuserid = %s ORDER BY oddate DESC', (user_id,))
+    else:
+        conn.close()
+        return jsonify({
+            'orders': [],
+            'total': 0,
+            'page': page,
+            'page_size': page_size,
+            'has_more': False
+        })
+
     all_orders = [dict(row) for row in cursor.fetchall()]
     
     conn.close()

@@ -102,25 +102,75 @@
         </div>
     </div>
 
-    <!-- 管理员模式 -->
-    <div class="admin-panel" id="admin-panel">
-        <div class="admin-header">
-            <h2>编辑模式</h2>
-            <button id="admin-close" class="admin-close">
+    <!-- 登录弹窗 -->
+    <div class="login-modal" id="login-modal">
+        <div class="login-modal-content">
+            <div class="login-header">
+                <h2>用户登录</h2>
+                <button id="login-close" class="login-close">
+                    <img src="img/icon/close.png" alt="关闭" width="20" height="20">
+                </button>
+            </div>
+            <div class="login-body">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-username">账号</label>
+                        <input type="text" id="login-username" placeholder="请输入账号" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">密码</label>
+                        <input type="password" id="login-password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="login-submit">登录</button>
+                </form>
+                <div class="login-error" id="login-error"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 个人中心页面 -->
+    <div class="user-panel" id="user-panel">
+        <div class="user-header">
+            <h2>个人中心</h2>
+            <button id="user-close" class="user-close">
                 <img src="img/icon/close.png" alt="关闭" width="24" height="24">
             </button>
         </div>
-        <div class="admin-content">
-            <div class="admin-section">
-                <h4>管理标签</h4>
-                <div class="tags-list" id="tags-list">
-                    <!-- 标签列表将通过JS动态生成 -->
+        <div class="user-content">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <span class="avatar-text">用户</span>
                 </div>
-                <form id="tag-form">
-                    <input type="text" placeholder="添加新标签" id="tag-name">
-                    <button type="submit">添加标签</button>
-                </form>
+                <div class="user-details">
+                    <h3 id="user-name">未登录</h3>
+                    <div class="user-balance">
+                        <span class="balance-label">账户余额</span>
+                        <span class="balance-value" id="user-balance">¥0.00</span>
+                    </div>
+                </div>
             </div>
+            
+            <div class="user-section">
+                <h4>最新订单</h4>
+                <div class="user-orders" id="user-orders">
+                    <!-- 用户订单将通过JS动态生成 -->
+                </div>
+            </div>
+
+            <button id="logout-button" class="logout-button">退出登录</button>
+        </div>
+    </div>
+    
+    <!-- 订单详情弹窗 -->
+    <div class="order-detail-modal" id="user-order-detail-modal">
+        <div class="order-detail-modal-content">
+            <div class="order-detail-modal-header">
+                <h2>订单详情</h2>
+                <button id="user-order-detail-close" class="order-detail-modal-close">
+                    <img src="img/icon/close.png" alt="关闭" width="20" height="20">
+                </button>
+            </div>
+            <div class="order-detail-modal-body" id="user-order-detail-body"></div>
         </div>
     </div>
     

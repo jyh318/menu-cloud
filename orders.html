@@ -337,22 +337,29 @@
 
         function formatDate(dateStr) {
             if (!dateStr) return '';
-            const date = new Date(dateStr);
-            if (isNaN(date.getTime())) {
-                return dateStr;
+            
+            const monthMap = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                             'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'};
+            
+            const match = dateStr.match(/^\w{3},\s*(\d{1,2})\s+(\w{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+GMT$/);
+            if (match) {
+                const year = match[3];
+                const month = monthMap[match[2]] || match[2];
+                const day = String(match[1]).padStart(2, '0');
+                const hours = match[4];
+                const minutes = match[5];
+                const seconds = match[6];
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
             }
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            const seconds = String(date.getSeconds()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            
+            return dateStr;
         }
 
         async function fetchOrders() {
             try {
-                const response = await fetch(`${API_BASE_URL}/orders`);
+                const response = await fetch(`${API_BASE_URL}/orders`, {
+                    credentials: 'include'
+                });
                 const data = await response.json();
                 orders = data.orders || [];
                 renderOrders();

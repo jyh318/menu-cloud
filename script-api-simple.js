@@ -721,17 +721,259 @@ function closeCart() {
  * 结算功能
  * 调用后端API创建订单并结算
  */
+window.currentUser = null;
+
+async function checkLoginStatus() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/check_login`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (data.logged_in) {
+            const userResponse = await fetch(`${API_BASE_URL}/user`, {
+                credentials: 'include'
+            });
+            const userData = await userResponse.json();
+            if (userData.success) {
+                window.currentUser = userData.user;
+            }
+        }
+        return data.logged_in;
+    } catch (error) {
+        console.error('检查登录状态失败:', error);
+        return false;
+    }
+}
+
+async function login(username, password) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (data.success) {
+            window.currentUser = data.user;
+            updateUserPanel();
+        }
+        return data;
+    } catch (error) {
+        console.error('登录失败:', error);
+        return { success: false, message: '登录失败' };
+    }
+}
+
+async function logout() {
+    try {
+        await fetch(`${API_BASE_URL}/logout`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        window.currentUser = null;
+        document.getElementById('user-panel').classList.remove('active');
+        updateAdminButton();
+    } catch (error) {
+        console.error('登出失败:', error);
+    }
+}
+
+async function fetchUserOrders() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/orders?page_size=5`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        return data.orders || [];
+    } catch (error) {
+        console.error('获取用户订单失败:', error);
+        return [];
+    }
+}
+
+function formatOrderDate(dateStr) {
+    if (!dateStr) return '';
+
+    // 格式: Sun, 24 May 2026 08:41:14 GMT
+    const monthMap = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                     'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'};
+    const match = dateStr.match(/^\w{3},\s*(\d{1,2})\s+(\w{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+GMT$/);
+    if (match) {
+        const year = match[3];
+        const month = monthMap[match[2]] || match[2];
+        const day = String(match[1]).padStart(2, '0');
+        const hours = match[4];
+        const minutes = match[5];
+        const seconds = match[6];
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+    
+    return dateStr;
+}
+
+function formatAvatarText(name) {
+    if (!name) return '用户';
+    
+    // 检查是否为英文（只包含英文字母和数字）
+    const isEnglish = /^[a-zA-Z0-9\s]+$/.test(name);
+    
+    if (isEnglish) {
+        return name;
+    }
+    
+    // 中文处理
+    if (name.length === 2) {
+        return name;
+    } else if (name.length >= 3) {
+        return name.slice(-2);
+    }
+    
+    return name;
+}
+
+async function showUserOrderDetail(orderNumber) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/order/${orderNumber}`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        const order = data.order;
+        const items = data.items;
+        const modalBody = document.getElementById('user-order-detail-body');
+
+        let noteHtml = '';
+        const note = order.remark || '';
+        if (note) {
+            noteHtml = `
+                <div class="order-detail-note">
+                    <span class="order-detail-note-label">备注</span>
+                    <span class="order-detail-note-value">${note}</span>
+                </div>
+            `;
+        }
+
+        modalBody.innerHTML = `
+            <div class="order-detail-info">
+                <div class="order-detail-info-row">
+                    <span class="order-detail-info-label">订单编号</span>
+                    <span class="order-detail-info-value">${order.odnum}</span>
+                </div>
+                <div class="order-detail-info-row">
+                    <span class="order-detail-info-label">下单时间</span>
+                    <span class="order-detail-info-value">${formatOrderDate(order.oddate)}</span>
+                </div>
+            </div>
+
+            <div class="order-detail-items">
+                <h3>菜品明细</h3>
+                ${items.map(item => `
+                    <div class="order-detail-item">
+                        <div>
+                            <div class="order-detail-item-name">${item.dish_name || `菜品ID: ${item.disid}`}</div>
+                            <div style="font-size: 0.8rem; color: #999;">单价: ¥${item.danjia} x ${item.coun}</div>
+                        </div>
+                        <div class="order-detail-item-price">¥${item.danjia * item.coun}</div>
+                    </div>
+                `).join('')}
+            </div>
+
+            ${noteHtml}
+
+            <div class="order-detail-total">
+                <span class="order-detail-total-label">合计金额</span>
+                <span class="order-detail-total-value">¥${order.heji}</span>
+            </div>
+        `;
+
+        document.getElementById('user-order-detail-modal').classList.add('active');
+    } catch (error) {
+        console.error('获取订单详情失败:', error);
+        alert('获取订单详情失败');
+    }
+}
+
+function closeUserOrderModal() {
+    document.getElementById('user-order-detail-modal').classList.remove('active');
+}
+
+async function updateUserPanel() {
+    if (window.currentUser) {
+        const username = window.currentUser.username;
+        document.getElementById('user-name').textContent = username;
+        document.getElementById('user-balance').textContent = `¥${window.currentUser.balance.toFixed(2)}`;
+        
+        // 设置头像文字
+        const avatarText = formatAvatarText(username);
+        const avatarSpan = document.querySelector('.avatar-text');
+        avatarSpan.textContent = avatarText;
+        
+        // 检查是否为英文，决定是否需要缩小字体
+        const isEnglish = /^[a-zA-Z0-9\s]+$/.test(username);
+        if (isEnglish && avatarText.length > 3) {
+            avatarSpan.style.fontSize = '0.9rem';
+        } else {
+            avatarSpan.style.fontSize = '';
+        }
+        
+        const orders = await fetchUserOrders();
+        const userOrdersContainer = document.getElementById('user-orders');
+        
+        if (orders.length === 0) {
+            userOrdersContainer.innerHTML = '<div class="empty">暂无订单</div>';
+        } else {
+            userOrdersContainer.innerHTML = orders.map(order => `
+                <div class="user-order-item">
+                    <div class="user-order-header">
+                        <span class="user-order-number">${order.odnum}</span>
+                        <span class="user-order-total">¥${order.heji}</span>
+                    </div>
+                    <div class="user-order-date">
+                        ${formatOrderDate(order.oddate)}
+                        <span class="order-detail-link" onclick="showUserOrderDetail('${order.odnum}')">订单详情&gt;&gt;</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+function updateAdminButton() {
+    const adminToggle = document.getElementById('admin-toggle');
+    if (window.currentUser) {
+        adminToggle.title = '个人中心';
+    } else {
+        adminToggle.title = '登录';
+    }
+}
+
 async function checkout() {
     if (cart.length === 0) {
         alert('购物车是空的');
         return;
     }
 
-    // 计算总价
+    const isLoggedIn = await checkLoginStatus();
+    if (!isLoggedIn) {
+        alert('请先登录');
+        document.getElementById('login-modal').classList.add('active');
+        return;
+    }
+
     const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+    if (window.currentUser && window.currentUser.balance < totalPrice) {
+        alert('余额不足，请先充值');
+        return;
+    }
+
     try {
-        // 显示加载状态
         const checkoutBtn = document.getElementById('checkout-button');
         const originalText = checkoutBtn?.textContent;
         checkoutBtn.textContent = '处理中...';
@@ -740,10 +982,10 @@ async function checkout() {
         const noteInput = document.getElementById('cart-note-input');
         const note = noteInput?.value?.trim() || '';
 
-        // 1. 创建订单 - 调用后端 API
         const createResponse = await fetch(`${API_BASE_URL}/order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({
                 items: cart.map(item => ({
                     id: item.id,
@@ -763,16 +1005,33 @@ async function checkout() {
         const createResult = await createResponse.json();
         const orderId = createResult.order_id;
 
-        // 2. 结算订单 - 调用后端 API
+        const deductResponse = await fetch(`${API_BASE_URL}/user/deduct_balance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                user_id: window.currentUser.id,
+                amount: totalPrice
+            })
+        });
+
+        if (!deductResponse.ok) {
+            const deductResult = await deductResponse.json();
+            throw new Error(deductResult.message || '余额扣除失败');
+        }
+
+        const deductResult = await deductResponse.json();
+        window.currentUser.balance = deductResult.balance;
+
         const checkoutResponse = await fetch(`${API_BASE_URL}/order/${orderId}/checkout`, {
-            method: 'POST'
+            method: 'POST',
+            credentials: 'include'
         });
 
         if (!checkoutResponse.ok) {
             throw new Error('结算失败');
         }
 
-        // 构建订单数据用于收据页面
         const orderData = {
             '订单ID': orderId,
             '订单详情': cart.map(item => ({
@@ -785,11 +1044,9 @@ async function checkout() {
             '合计金额': totalPrice.toFixed(2)
         };
 
-        // 跳转到收据页面
         const orderJson = encodeURIComponent(JSON.stringify(orderData));
         window.location.href = `receipt.html?order=${orderJson}`;
 
-        // 清空购物车
         cart = [];
         localStorage.setItem('cart', JSON.stringify(cart));
         updateCartDisplay();
@@ -906,6 +1163,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCartDisplay();
     setupInfiniteScroll();
 
+    // 检查登录状态
+    await checkLoginStatus();
+    updateAdminButton();
+
     // 获取DOM元素引用
     const adminToggle = document.getElementById('admin-toggle');
     const adminPanel = document.getElementById('admin-panel');
@@ -949,17 +1210,77 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 300);
     });
 
-    // 管理员模式切换
-    adminToggle?.addEventListener('click', () => {
-        window.isAdminMode = !window.isAdminMode;
-        adminPanel.classList.toggle('active');
-        renderDishes(allDishes, false);
+    // 登录/个人中心切换
+    adminToggle?.addEventListener('click', async () => {
+        if (window.currentUser) {
+            await updateUserPanel();
+            document.getElementById('user-panel').classList.add('active');
+        } else {
+            document.getElementById('login-modal').classList.add('active');
+        }
     });
 
-    adminClose?.addEventListener('click', () => {
-        adminPanel.classList.remove('active');
-        window.isAdminMode = false;
-        renderDishes(allDishes, false);
+    // 登录弹窗关闭
+    const loginModal = document.getElementById('login-modal');
+    const loginClose = document.getElementById('login-close');
+    loginClose?.addEventListener('click', () => {
+        loginModal.classList.remove('active');
+        document.getElementById('login-error').classList.remove('show');
+    });
+
+    loginModal?.addEventListener('click', (e) => {
+        if (e.target === loginModal) {
+            loginModal.classList.remove('active');
+            document.getElementById('login-error').classList.remove('show');
+        }
+    });
+
+    // 登录表单提交
+    const loginForm = document.getElementById('login-form');
+    loginForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
+        const errorDiv = document.getElementById('login-error');
+
+        const result = await login(username, password);
+        if (result.success) {
+            loginModal.classList.remove('active');
+            errorDiv.classList.remove('show');
+            document.getElementById('login-form').reset();
+            updateAdminButton();
+            await updateUserPanel();
+            document.getElementById('user-panel').classList.add('active');
+        } else {
+            errorDiv.textContent = result.message;
+            errorDiv.classList.add('show');
+        }
+    });
+
+    // 个人中心关闭
+    const userPanel = document.getElementById('user-panel');
+    const userClose = document.getElementById('user-close');
+    userClose?.addEventListener('click', () => {
+        userPanel.classList.remove('active');
+    });
+
+    // 退出登录
+    const logoutButton = document.getElementById('logout-button');
+    logoutButton?.addEventListener('click', async () => {
+        await logout();
+    });
+    
+    // 订单详情弹窗关闭
+    const userOrderDetailModal = document.getElementById('user-order-detail-modal');
+    const userOrderDetailClose = document.getElementById('user-order-detail-close');
+    userOrderDetailClose?.addEventListener('click', () => {
+        userOrderDetailModal.classList.remove('active');
+    });
+    
+    userOrderDetailModal?.addEventListener('click', (e) => {
+        if (e.target === userOrderDetailModal) {
+            userOrderDetailModal.classList.remove('active');
+        }
     });
 
     // 编辑面板关闭
@@ -1041,6 +1362,8 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 window.changeQuantity = changeQuantity;
 window.showDishDetail = showDishDetail;
+window.showUserOrderDetail = showUserOrderDetail;
+window.closeUserOrderModal = closeUserOrderModal;
 window.filterByTag = filterByTag;
 window.getCartQuantity = getCartQuantity;
 window.toggleTagCategory = toggleTagCategory;

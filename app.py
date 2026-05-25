@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # ==================== 导入模块 ====================
 
-from flask import Flask, jsonify, send_from_directory, request
+from flask import Flask, jsonify, send_from_directory, request, session
 from flask_cors import CORS
 from logconfig import log_config
 
@@ -42,11 +42,13 @@ from logconfig import log_config
 from routes_dish import register_dish_routes
 from routes_tag import register_tag_routes
 from routes_order import create_order, checkout_order, get_order_list, get_order_detail
+from routes_auth import register_auth_routes
 
 # ==================== 应用初始化 ====================
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = 'menu_cloud_secret_key_2026'
+CORS(app, supports_credentials=True)
 
 logger = log_config()
 
@@ -106,6 +108,7 @@ def get_receipt_info_route():
 
 register_dish_routes(app)
 register_tag_routes(app)
+register_auth_routes(app)
 
 # ==================== 应用启动 ====================
 
