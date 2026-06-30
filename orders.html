@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>订单管理</title>
     <style>
+        :root {
+            --bg-primary: #1A1A1E;
+            --bg-secondary: #24242A;
+            --bg-tertiary: #2A2A32;
+            --bg-elevated: #2F2F38;
+            --brand-primary: #FF8A3D;
+            --brand-hover: #FF9F5A;
+            --text-primary: #F0F0F0;
+            --text-secondary: #A0A0A5;
+            --text-tertiary: #6E6E73;
+            --border-color: #33333B;
+            --border-light: #2A2A32;
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+            --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.6);
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --radius-full: 9999px;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,41 +32,49 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
         .header {
-            background-color: #7A77B9;
-            color: white;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
             padding: 16px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid var(--border-light);
         }
 
         .header h1 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
         }
 
         .header a {
-            color: white;
+            color: var(--text-secondary);
             text-decoration: none;
             padding: 8px 16px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            transition: background-color 0.3s;
+            background-color: var(--bg-tertiary);
+            border-radius: var(--radius-full);
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
         }
 
         .header a:hover {
-            background-color: rgba(255, 255, 255, 0.3);
+            background-color: var(--bg-elevated);
+            color: var(--text-primary);
+            border-color: var(--brand-primary);
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 900px;
             margin: 24px auto;
             padding: 0 16px;
         }
@@ -57,16 +85,19 @@
         }
 
         .order-card {
-            background-color: white;
-            border-radius: 12px;
+            background-color: var(--bg-secondary);
+            border-radius: var(--radius-lg);
             padding: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            box-shadow: var(--shadow-card);
             cursor: pointer;
-            transition: box-shadow 0.3s;
+            transition: all 0.25s ease;
+            border: 1px solid var(--border-light);
         }
 
         .order-card:hover {
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+            border-color: var(--border-color);
         }
 
         .order-header {
@@ -77,41 +108,41 @@
         }
 
         .order-number {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .order-date {
-            color: #999;
-            font-size: 14px;
+            color: var(--text-tertiary);
+            font-size: 13px;
         }
 
         .order-total {
             font-size: 20px;
             font-weight: 700;
-            color: #E53935;
+            color: var(--brand-primary);
         }
 
         .order-items {
             margin-top: 12px;
             padding-top: 12px;
-            border-top: 1px solid #f0f0f0;
+            border-top: 1px solid var(--border-light);
         }
 
         .order-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 6px 0;
             font-size: 14px;
         }
 
         .order-item-name {
-            color: #333;
+            color: var(--text-secondary);
         }
 
         .order-item-info {
-            color: #666;
+            color: var(--text-tertiary);
         }
 
         .order-detail-modal {
@@ -121,7 +152,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
             z-index: 1000;
             justify-content: center;
             align-items: center;
@@ -132,13 +164,15 @@
         }
 
         .modal-content {
-            background-color: white;
-            border-radius: 16px;
+            background-color: var(--bg-secondary);
+            border-radius: var(--radius-lg);
             width: 90%;
             max-width: 500px;
             max-height: 80vh;
             overflow-y: auto;
             animation: slideUp 0.3s ease;
+            box-shadow: var(--shadow-modal);
+            border: 1px solid var(--border-light);
         }
 
         @keyframes slideUp {
@@ -154,7 +188,7 @@
 
         .modal-header {
             padding: 20px;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--border-light);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -162,25 +196,29 @@
 
         .modal-header h2 {
             font-size: 18px;
-            color: #333;
+            color: var(--text-primary);
+            font-weight: 600;
         }
 
         .modal-close {
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            border: none;
-            background-color: #f5f5f5;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-tertiary);
             cursor: pointer;
             display: flex;
             justify-content: center;
             align-items: center;
             font-size: 18px;
-            color: #999;
+            color: var(--text-secondary);
+            transition: all 0.15s ease;
         }
 
         .modal-close:hover {
-            background-color: #eee;
+            background-color: var(--bg-elevated);
+            color: var(--text-primary);
+            border-color: var(--brand-primary);
         }
 
         .modal-body {
@@ -190,8 +228,9 @@
         .modal-info {
             margin-bottom: 16px;
             padding: 12px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
+            background-color: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
         }
 
         .modal-info-row {
@@ -202,11 +241,11 @@
         }
 
         .modal-info-label {
-            color: #999;
+            color: var(--text-tertiary);
         }
 
         .modal-info-value {
-            color: #333;
+            color: var(--text-primary);
             font-weight: 500;
         }
 
@@ -218,7 +257,7 @@
             font-size: 16px;
             font-weight: 600;
             margin-bottom: 12px;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .modal-note {
@@ -227,19 +266,20 @@
             gap: 8px;
             margin-top: 16px;
             padding: 12px;
-            background-color: #f8f8f8;
-            border-radius: 8px;
+            background-color: var(--bg-tertiary);
+            border-radius: var(--radius-md);
             font-size: 14px;
+            border: 1px solid var(--border-color);
         }
 
         .modal-note-label {
-            font-weight: 600;
-            color: #333;
+            font-weight: 500;
+            color: var(--text-secondary);
         }
 
         .modal-note-value {
             flex: 1;
-            color: #666;
+            color: var(--text-primary);
             word-break: break-all;
         }
 
@@ -248,7 +288,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 0;
-            border-bottom: 1px solid #f5f5f5;
+            border-bottom: 1px solid var(--border-light);
         }
 
         .modal-item:last-child {
@@ -257,12 +297,12 @@
 
         .modal-item-name {
             font-size: 14px;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .modal-item-price {
             font-size: 14px;
-            color: #666;
+            color: var(--text-secondary);
         }
 
         .modal-total {
@@ -271,24 +311,25 @@
             align-items: center;
             padding: 16px 0;
             margin-top: 16px;
-            border-top: 2px solid #7A77B9;
+            border-top: 2px solid var(--brand-primary);
             font-size: 18px;
         }
 
         .modal-total-label {
             font-weight: 600;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .modal-total-value {
             font-weight: 700;
-            color: #E53935;
+            color: var(--brand-primary);
+            font-size: 1.25rem;
         }
 
         .empty-state {
             text-align: center;
             padding: 60px 20px;
-            color: #999;
+            color: var(--text-tertiary);
         }
 
         .empty-state img {
@@ -299,13 +340,41 @@
         }
 
         .empty-state p {
-            font-size: 16px;
+            font-size: 15px;
         }
 
         .loading {
             text-align: center;
             padding: 40px;
-            color: #999;
+            color: var(--text-tertiary);
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 12px 16px;
+            }
+
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .header a {
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+
+            .container {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+
+            .order-card {
+                padding: 16px;
+            }
+
+            .order-total {
+                font-size: 18px;
+            }
         }
     </style>
 </head>

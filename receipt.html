@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小贾私房菜 - 消费小票</title>
     <style>
+        :root {
+            --bg-primary: #1A1A1E;
+            --bg-secondary: #24242A;
+            --bg-tertiary: #2A2A32;
+            --brand-primary: #FF8A3D;
+            --brand-hover: #FF9F5A;
+            --text-primary: #F0F0F0;
+            --text-secondary: #A0A0A5;
+            --text-tertiary: #6E6E73;
+            --border-color: #33333B;
+            --border-light: #2A2A32;
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.35);
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-full: 9999px;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,37 +29,39 @@
         }
 
         body {
-            font-family: 'SimHei', 'Microsoft YaHei', sans-serif;
-            background-color: #f5f5f5;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-primary);
+            padding: 24px;
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
         .receipt-container {
             max-width: 400px;
             margin: 0 auto;
-            background-color: #fff;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
+            background-color: var(--bg-secondary);
+            box-shadow: var(--shadow-card);
+            border-radius: var(--radius-lg);
             overflow: hidden;
+            border: 1px solid var(--border-light);
         }
 
         .receipt-header {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
-            color: white;
-            padding: 20px;
+            background: linear-gradient(135deg, var(--brand-primary) 0%, #FFB088 100%);
+            color: #1A1A1E;
+            padding: 24px;
             text-align: center;
         }
 
         .receipt-header h1 {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 5px;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
         }
 
         .receipt-header p {
-            font-size: 14px;
-            opacity: 0.9;
+            font-size: 13px;
+            opacity: 0.85;
         }
 
         .receipt-body {
@@ -50,19 +69,19 @@
         }
 
         .receipt-info {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .info-row {
             display: flex;
             justify-content: space-between;
             font-size: 14px;
-            line-height: 1.8;
-            color: #333;
+            line-height: 1.9;
+            color: var(--text-primary);
         }
 
         .info-row .label {
-            color: #666;
+            color: var(--text-tertiary);
         }
 
         .info-row .value {
@@ -70,26 +89,26 @@
         }
 
         .dashed-line {
-            border-bottom: 1px dashed #ddd;
-            margin: 15px 0;
+            border-bottom: 1px dashed var(--border-color);
+            margin: 12px 0;
         }
 
         .full-line {
-            border-bottom: 2px solid #333;
-            margin: 15px 0;
+            border-bottom: 2px solid var(--brand-primary);
+            margin: 12px 0;
         }
 
         .table-header {
             display: flex;
             justify-content: space-between;
             font-size: 12px;
-            color: #666;
+            color: var(--text-tertiary);
             padding-bottom: 8px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .table-body {
-            margin-top: 10px;
+            margin-top: 8px;
         }
 
         .table-row {
@@ -97,7 +116,8 @@
             justify-content: space-between;
             font-size: 13px;
             line-height: 2;
-            padding: 5px 0;
+            padding: 4px 0;
+            color: var(--text-primary);
         }
 
         .table-row .name {
@@ -109,117 +129,125 @@
             flex: 1;
             text-align: right;
             font-size: 12px;
-            color: #666;
+            color: var(--text-tertiary);
         }
 
         .table-row .quantity {
             flex: 1;
             text-align: center;
             font-size: 12px;
-            color: #666;
+            color: var(--text-secondary);
         }
 
         .table-row .subtotal {
             flex: 1;
             text-align: right;
-            font-weight: 500;
+            font-weight: 600;
+            color: var(--text-primary);
         }
 
         .note-section {
-            margin-bottom: 10px;
-            padding-top: 10px;
+            margin-bottom: 8px;
+            padding-top: 8px;
         }
 
         .note-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
+            gap: 6px;
             font-size: 13px;
-            color: #666;
+            color: var(--text-secondary);
         }
 
         .note-content {
             flex: 1;
             word-break: break-all;
+            color: var(--text-primary);
         }
 
         .total-section {
-            margin-top: 20px;
+            margin-top: 16px;
         }
 
         .total-row {
             display: flex;
             justify-content: space-between;
-            font-size: 16px;
-            padding: 8px 0;
+            font-size: 15px;
+            padding: 6px 0;
+            align-items: center;
         }
 
         .total-row .label {
-            color: #666;
+            color: var(--text-secondary);
+            font-weight: 500;
         }
 
         .total-row .amount {
-            font-size: 20px;
-            font-weight: bold;
-            color: #ff6b6b;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--brand-primary);
         }
 
         .receipt-footer {
-            background-color: #f8f8f8;
-            padding: 15px 20px;
+            background-color: var(--bg-tertiary);
+            padding: 16px 20px;
             text-align: center;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--border-light);
         }
 
         .receipt-footer p {
             font-size: 12px;
-            color: #999;
-            line-height: 1.6;
+            color: var(--text-tertiary);
+            line-height: 1.7;
         }
 
         .footer-thanks {
-            font-size: 14px !important;
-            color: #666 !important;
-            margin-bottom: 8px;
+            font-size: 13px !important;
+            color: var(--text-secondary) !important;
+            margin-bottom: 6px;
+            font-weight: 500;
         }
 
         .print-btn {
-            width: calc((400px - 10px) / 2);
+            flex: 1;
             padding: 12px 24px;
-            background-color: #ff6b6b;
-            color: white;
+            background-color: var(--brand-primary);
+            color: #1A1A1E;
             border: none;
-            border-radius: 25px;
-            font-size: 16px;
+            border-radius: var(--radius-full);
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
+            font-family: inherit;
         }
 
         .back-btn {
+            flex: 1;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: calc((400px - 10px) / 2);
             height: 44px;
             padding: 0 24px;
-            background-color: #7A77B9;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            font-size: 16px;
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            font-size: 15px;
             font-family: inherit;
-            font-weight: normal;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
             text-align: center;
             text-decoration: none;
             line-height: 1;
         }
 
         .back-btn:hover {
-            background-color: #6B69A6;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(122, 119, 185, 0.3);
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            border-color: var(--brand-primary);
+            transform: translateY(-1px);
         }
 
         .btn-container {
@@ -231,9 +259,40 @@
         }
 
         .print-btn:hover {
-            background-color: #ee5a5a;
+            background-color: var(--brand-hover);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(238, 90, 90, 0.3);
+            box-shadow: 0 6px 20px rgba(255, 138, 61, 0.35);
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 16px 12px;
+            }
+
+            .receipt-body {
+                padding: 16px;
+            }
+
+            .receipt-header {
+                padding: 20px;
+            }
+
+            .receipt-header h1 {
+                font-size: 20px;
+            }
+
+            .total-row .amount {
+                font-size: 20px;
+            }
+
+            .btn-container {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .print-btn, .back-btn {
+                width: 100%;
+            }
         }
 
         @media print {
@@ -246,10 +305,81 @@
                 box-shadow: none;
                 max-width: 100%;
                 width: 100%;
+                border: none;
+                background-color: white;
+            }
+
+            .receipt-header {
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+                color: white;
+            }
+
+            .receipt-body {
+                background: white;
+            }
+
+            .info-row {
+                color: #333;
+            }
+
+            .info-row .label {
+                color: #666;
+            }
+
+            .dashed-line {
+                border-bottom-color: #ddd;
+            }
+
+            .full-line {
+                border-bottom-color: #333;
+            }
+
+            .table-header {
+                color: #666;
+                border-bottom-color: #eee;
+            }
+
+            .table-row {
+                color: #333;
+            }
+
+            .table-row .price,
+            .table-row .quantity {
+                color: #666;
+            }
+
+            .note-row {
+                color: #666;
+            }
+
+            .note-content {
+                color: #333;
+            }
+
+            .total-row .label {
+                color: #666;
+            }
+
+            .total-row .amount {
+                color: #ff6b6b;
+            }
+
+            .receipt-footer {
+                background-color: #f8f8f8;
+                border-top-color: #eee;
+            }
+
+            .receipt-footer p {
+                color: #999;
+            }
+
+            .footer-thanks {
+                color: #666 !important;
             }
             
-            .print-btn, .back-btn {
-                display: none;
+            .print-btn, .back-btn,
+            .btn-container {
+                display: none !important;
             }
         }
     </style>
