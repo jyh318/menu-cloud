@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小贾私房菜</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="header">
+        <div class="header-left">
+            <img id="logo" src="img/icon/logo.png" alt="logo" height="50" onclick="toggleEditMode()">
+        </div>
+        <div class="header-center">
+            <h1 class="logo-text">小贾私房菜</h1>
+        </div>
+        <div class="header-right">
+            <button id="search-toggle" class="search-button">
+                <img src="img/icon/search.png" alt="搜索" width="24" height="24">
+            </button>
+            <button id="orders-toggle" class="orders-button" onclick="window.location.href='orders.html'">
+                <img src="img/icon/orders.png" alt="订单" width="24" height="24">
+            </button>
+            <button id="admin-toggle" class="admin-button">
+                <img src="img/icon/manage.png" alt="管理员" width="24" height="24">
+            </button>
+        </div>
+    </header>
+
+    <!-- 搜索弹窗 -->
+    <div class="search-modal" id="search-modal">
+        <div class="search-modal-content">
+            <input type="text" id="search-input" placeholder="搜索菜品、价格或描述..." autofocus>
+            <button id="search-close" class="search-close">
+                <img src="img/icon/close.png" alt="关闭" width="20" height="20">
+            </button>
+        </div>
+    </div>
+
+    <!-- 标签筛选栏 -->
+    <div class="tags-container">
+        <div class="primary-tags-container" id="primary-tags-container">
+            <!-- 一级标签将通过JS动态生成 -->
+        </div>
+        <div class="tags-divider"></div>
+        <div class="secondary-tags-container" id="secondary-tags-container">
+            <!-- 二级标签将通过JS动态生成 -->
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 菜品卡片将通过JS动态生成 -->
+        <div class="menu-grid" id="menu-grid">
+        </div>
+    </main>
+
+    <!-- 购物车按钮 -->
+    <button class="cart-button" id="cart-button">
+        <img src="img/icon/购物车.png" alt="购物车" width="28" height="28">
+        <span class="cart-badge" id="cart-badge">0</span>
+    </button>
+
+    <!-- 购物车弹窗 -->
+    <div class="cart-sidebar" id="cart-sidebar">
+        <div class="cart-sidebar-header">
+            <h3>购物车</h3>
+            <button class="cart-close" id="cart-close">
+                <img src="img/icon/close-red.png" alt="关闭" width="20" height="20">
+            </button>
+        </div>
+        <div class="cart-sidebar-content">
+            <div class="cart-items" id="cart-items">
+                <!-- 购物车项目将通过JS动态生成 -->
+            </div>
+        </div>
+        <div class="cart-sidebar-footer">
+            <div class="cart-note">
+                <label for="cart-note-input">备注</label>
+                <textarea id="cart-note-input" placeholder="请输入备注信息（选填）"></textarea>
+            </div>
+            <div class="cart-summary">
+                <div class="summary-row total-row">
+                    <span>总计</span>
+                    <span id="total-amount">¥0.00</span>
+                </div>
+            </div>
+            <button class="checkout-button" id="checkout-button">去结算</button>
+        </div>
+    </div>
+
+    <!-- 菜品详情模态框 点击菜品卡片显示 -->
+    <div class="modal" id="dish-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="modal-close">
+                <img src="img/icon/close-red.png" alt="关闭" width="24" height="24">
+            </button>
+            <div class="dish-detail" id="dish-detail">
+                <!-- 菜品详情将通过JS动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录弹窗 -->
+    <div class="login-modal" id="login-modal">
+        <div class="login-modal-content">
+            <div class="login-header">
+                <h2>用户登录</h2>
+                <button id="login-close" class="login-close">
+                    <img src="img/icon/close.png" alt="关闭" width="20" height="20">
+                </button>
+            </div>
+            <div class="login-body">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-username">账号</label>
+                        <input type="text" id="login-username" placeholder="请输入账号" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">密码</label>
+                        <input type="password" id="login-password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="login-submit">登录</button>
+                </form>
+                <div class="login-error" id="login-error"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 个人中心页面 -->
+    <div class="user-panel" id="user-panel">
+        <div class="user-header">
+            <h2>个人中心</h2>
+            <button id="user-close" class="user-close">
+                <img src="img/icon/close.png" alt="关闭" width="24" height="24">
+            </button>
+        </div>
+        <div class="user-content">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <span class="avatar-text">用户</span>
+                </div>
+                <div class="user-details">
+                    <h3 id="user-name">未登录</h3>
+                    <div class="user-balance">
+                        <span class="balance-label">账户余额</span>
+                        <span class="balance-value" id="user-balance">¥0.00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="user-section">
+                <h4>最新订单</h4>
+                <div class="user-orders" id="user-orders">
+                    <!-- 用户订单将通过JS动态生成 -->
+                </div>
+            </div>
+
+            <button id="logout-button" class="logout-button">退出登录</button>
+        </div>
+    </div>
+    
+    <!-- 订单详情弹窗 -->
+    <div class="order-detail-modal" id="user-order-detail-modal">
+        <div class="order-detail-modal-content">
+            <div class="order-detail-modal-header">
+                <h2>订单详情</h2>
+                <button id="user-order-detail-close" class="order-detail-modal-close">
+                    <img src="img/icon/close.png" alt="关闭" width="20" height="20">
+                </button>
+            </div>
+            <div class="order-detail-modal-body" id="user-order-detail-body"></div>
+        </div>
+    </div>
+    
+    <!-- 编辑菜品面板 -->
+    <div class="edit-panel" id="edit-panel">
+        <div class="edit-header">
+            <h2>编辑菜品</h2>
+            <button id="edit-close" class="edit-close">
+                <img src="img/icon/close.png" alt="关闭" width="24" height="24">
+            </button>
+        </div>
+        <div class="edit-content">
+            <form id="edit-dish-form">
+                <input type="text" placeholder="菜品名称" id="edit-dish-name">
+                <input type="number" placeholder="价格" id="edit-dish-price">
+                <input type="text" placeholder="图片URL" id="edit-dish-image">
+                <textarea placeholder="菜品简介" id="edit-dish-desc"></textarea>
+                <textarea placeholder="详细描述" id="edit-dish-detail-desc"></textarea>
+                <textarea placeholder="制作方法" id="edit-dish-method"></textarea>
+                <textarea placeholder="用料" id="edit-dish-ingredients"></textarea>
+                <input type="text" placeholder="标签 (用英文逗号分隔)" id="edit-dish-tags">
+                <button type="submit">保存修改</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script-api-simple.js"></script>
+</body>
+</html>
