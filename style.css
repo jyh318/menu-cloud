@@ -441,6 +441,11 @@ header {
   line-height: 1.5;
 }
 
+/* 移动端子分类面板：默认隐藏，仅在移动端显示 */
+.mobile-sub-panel {
+  display: none;
+}
+
 /* ===== CONTENT AREA ===== */
 .content {
   flex: 1;
