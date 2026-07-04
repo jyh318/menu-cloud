@@ -15,6 +15,8 @@ const AppState = {
   searchKeyword: '',        // 搜索关键词
   cart: [],                 // 购物车 [{id, name, price, quantity, image}]
   isAdmin: false,           // 是否管理员模式
+  editMode: false,          // 是否编辑模式
+  currentUser: null,        // 当前登录用户
   isMobile: () => window.innerWidth <= 480
 };
 
@@ -42,13 +44,83 @@ const DOM = {
   cartEmpty: document.getElementById('cart-empty'),
   totalAmount: document.getElementById('total-amount'),
   checkoutButton: document.getElementById('checkout-button'),
+  cartNoteInput: document.getElementById('cart-note-input'),
   adminBtn: document.getElementById('admin-btn'),
+  adminAvatarImg: document.getElementById('admin-avatar-img'),
+  adminAvatarText: document.getElementById('admin-avatar-text'),
+  mobileAvatarImg: document.getElementById('mobile-avatar-img'),
+  mobileAvatarText: document.getElementById('mobile-avatar-text'),
   adminPanel: document.getElementById('admin-panel'),
   adminClose: document.getElementById('admin-close'),
   addDishBtn: document.getElementById('add-dish-btn'),
+  editDishBtn: document.getElementById('edit-dish-btn'),
+  editDishModal: document.getElementById('edit-dish-modal'),
+  editDishForm: document.getElementById('edit-dish-form'),
+  editDishName: document.getElementById('edit-dish-name'),
+  editDishPrice: document.getElementById('edit-dish-price'),
+  editDishImage: document.getElementById('edit-dish-image'),
+  editDishDescription: document.getElementById('edit-dish-description'),
+  editDishDetail: document.getElementById('edit-dish-detail'),
+  editDishIngredients: document.getElementById('edit-dish-ingredients'),
+  editDishMethod: document.getElementById('edit-dish-method'),
+  editDishTags: document.getElementById('edit-dish-tags'),
+  editDishClose: document.getElementById('edit-dish-close'),
+  editDishCancel: document.getElementById('edit-dish-cancel'),
+  addDishModal: document.getElementById('add-dish-modal'),
+  addDishForm: document.getElementById('add-dish-form'),
+  addDishName: document.getElementById('add-dish-name'),
+  addDishPrice: document.getElementById('add-dish-price'),
+  addDishImage: document.getElementById('add-dish-image'),
+  addDishDescription: document.getElementById('add-dish-description'),
+  addDishDetail: document.getElementById('add-dish-detail'),
+  addDishIngredients: document.getElementById('add-dish-ingredients'),
+  addDishMethod: document.getElementById('add-dish-method'),
+  addDishTags: document.getElementById('add-dish-tags'),
+  addDishClose: document.getElementById('add-dish-close'),
+  addDishCancel: document.getElementById('add-dish-cancel'),
+  userPanel: document.getElementById('user-panel'),
+  userPanelClose: document.getElementById('user-panel-close'),
+  userAvatarLarge: document.getElementById('user-avatar-large'),
+  userName: document.getElementById('user-name'),
+  userId: document.getElementById('user-id'),
+  userBalance: document.getElementById('user-balance'),
+  userLogoutBtn: document.getElementById('user-logout-btn'),
+  adminLogoutBtn: document.getElementById('admin-logout-btn'),
   mobileSubPanel: document.getElementById('mobileSubPanel'),
-  sidebar: document.querySelector('.sidebar')
+  mobileOrdersBtn: document.getElementById('mobile-orders-btn'),
+  mobileAvatarBtn: document.getElementById('mobile-avatar-btn'),
+  ordersBtn: document.getElementById('orders-btn'),
+  loginModal: document.getElementById('login-modal'),
+  loginClose: document.getElementById('login-close'),
+  loginUsername: document.getElementById('login-username'),
+  loginPassword: document.getElementById('login-password'),
+  loginButton: document.getElementById('login-button'),
+  loginError: document.getElementById('login-error'),
+  sidebar: document.querySelector('.sidebar'),
+  confirmModal: document.getElementById('confirm-modal'),
+  confirmTitle: document.getElementById('confirm-title'),
+  confirmMessage: document.getElementById('confirm-message'),
+  confirmOk: document.getElementById('confirm-ok'),
+  confirmCancel: document.getElementById('confirm-cancel')
 };
+
+// ==================== 工具函数 ====================
+
+/**
+ * 将十六进制颜色转换为RGBA格式
+ * @param {string} hex - 十六进制颜色值
+ * @param {number} alpha - 透明度 (0-1)
+ * @returns {string} RGBA颜色值
+ */
+function hexToRgba(hex, alpha) {
+  if (!hex || !hex.startsWith('#')) return hex;
+  
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 // ==================== API 请求函数 ====================
 
@@ -61,11 +133,12 @@ const DOM = {
 async function apiRequest(url, options = {}) {
   try {
     const response = await fetch(url, {
+      ...options,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...options.headers
-      },
-      ...options
+      }
     });
     const data = await response.json();
     if (!response.ok) {
@@ -201,9 +274,27 @@ function getTagIcon(tagName) {
 function renderDishCard(dish) {
   const imageSrc = getDishImage(dish.image);
   const tags = dish.tag_details || [];
-  const tagHtml = tags.slice(0, 2).map(tag => 
+  const displayTags = tags.slice(0, 2);
+  const extraCount = tags.length - 2;
+  
+  let tagHtml = displayTags.map(tag => 
     `<span class="card-tag" style="background:${tag.background_color || 'var(--surface)'};color:${tag.text_color || 'var(--text-muted)'}">${tag.name}</span>`
   ).join('');
+  
+  if (extraCount > 0) {
+    tagHtml += `<span class="card-tag card-tag-extra">+${extraCount}</span>`;
+  }
+
+  const editActions = AppState.editMode ? `
+    <div class="card-actions">
+      <button class="card-action-btn card-edit-btn" data-edit-id="${dish.id}" aria-label="编辑">
+        <img src="img/icon/编辑.png" alt="编辑">
+      </button>
+      <button class="card-action-btn card-delete-btn" data-delete-id="${dish.id}" aria-label="删除">
+        <img src="img/icon/删除.png" alt="删除">
+      </button>
+    </div>
+  ` : '';
 
   return `
     <div class="food-card" data-dish-id="${dish.id}">
@@ -212,6 +303,7 @@ function renderDishCard(dish) {
         ${tags.some(t => t.name === '热销') ? '<span class="card-badge badge-hot">热销</span>' : ''}
         ${tags.some(t => t.name === '新品') ? '<span class="card-badge badge-new">新品</span>' : ''}
         ${tags.some(t => t.name === '招牌') ? '<span class="card-badge badge-chef">主厨推荐</span>' : ''}
+        ${editActions}
       </div>
       <div class="card-body">
         <div class="card-header-row">
@@ -246,7 +338,7 @@ function renderDishes() {
   }
   
   if (dishes.length === 0) {
-    DOM.foodGrid.innerHTML = '<div class="loading">暂无菜品</div>';
+    DOM.foodGrid.innerHTML = '<div class="loading">没有数据呢</div>';
     return;
   }
   
@@ -256,32 +348,54 @@ function renderDishes() {
   bindDishCardEvents();
 }
 
+let foodGridClickHandler = null;
+
 /**
- * 绑定菜品卡片的交互事件
+ * 绑定菜品卡片的交互事件（使用事件委托）
  */
 function bindDishCardEvents() {
-  // 菜品卡片点击 - 查看详情
-  document.querySelectorAll('.food-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.add-btn')) return;
-      const dishId = parseInt(card.dataset.dishId);
-      showDishDetail(dishId);
-    });
-  });
+  if (foodGridClickHandler) {
+    DOM.foodGrid.removeEventListener('click', foodGridClickHandler);
+  }
   
-  // 添加按钮点击 - 加入购物车
-  document.querySelectorAll('.add-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  foodGridClickHandler = (e) => {
+    const addBtn = e.target.closest('.add-btn');
+    const editBtn = e.target.closest('.card-edit-btn');
+    const deleteBtn = e.target.closest('.card-delete-btn');
+    
+    if (addBtn) {
       e.stopPropagation();
-      const dishId = parseInt(btn.dataset.addId);
+      const dishId = parseInt(addBtn.dataset.addId);
       addToCart(dishId);
       
-      // 按钮动画反馈
-      btn.style.transform = 'scale(0.85)';
-      setTimeout(() => { btn.style.transform = 'scale(1.08)'; }, 100);
-      setTimeout(() => { btn.style.transform = 'scale(1)'; }, 250);
-    });
-  });
+      addBtn.style.transform = 'scale(0.85)';
+      setTimeout(() => { addBtn.style.transform = 'scale(1.08)'; }, 100);
+      setTimeout(() => { addBtn.style.transform = 'scale(1)'; }, 250);
+      return;
+    }
+    
+    if (editBtn) {
+      e.stopPropagation();
+      const dishId = parseInt(editBtn.dataset.editId);
+      openEditDishModal(dishId);
+      return;
+    }
+    
+    if (deleteBtn) {
+      e.stopPropagation();
+      const dishId = parseInt(deleteBtn.dataset.deleteId);
+      deleteDish(dishId);
+      return;
+    }
+    
+    const card = e.target.closest('.food-card');
+    if (card && !AppState.editMode) {
+      const dishId = parseInt(card.dataset.dishId);
+      showDishDetail(dishId);
+    }
+  };
+  
+  DOM.foodGrid.addEventListener('click', foodGridClickHandler);
 }
 
 // ==================== 分类/标签管理（一二级结构） ====================
@@ -445,6 +559,12 @@ function selectCategory(tag) {
     }
   }
   
+  // 移动端：点击全部菜品时隐藏二级面板，点击其他一级分类时不自动隐藏
+  if (AppState.isMobile() && tag === 'all') {
+    hideMobileSubPanel();
+    document.querySelectorAll('.category-header[data-parent-id]').forEach(h => h.classList.remove('active'));
+  }
+  
   // 筛选菜品
   filterDishes();
 }
@@ -484,8 +604,10 @@ function filterDishes() {
  */
 function openSearchModal() {
   DOM.searchModal.classList.add('active');
-  DOM.searchInput.value = '';
-  setTimeout(() => DOM.searchInput.focus(), 100);
+  setTimeout(() => {
+    DOM.searchInput.value = AppState.searchKeyword;
+    DOM.searchInput.focus();
+  }, 100);
 }
 
 /**
@@ -690,18 +812,143 @@ function closeCartSidebar() {
   DOM.cartSidebar.classList.remove('active');
 }
 
+// ==================== 用户登录 ====================
+
+/**
+ * 打开登录弹窗
+ */
+function openLoginModal() {
+  DOM.loginModal.classList.add('active');
+  DOM.loginUsername.value = '';
+  DOM.loginPassword.value = '';
+  DOM.loginError.textContent = '';
+  setTimeout(() => DOM.loginUsername.focus(), 100);
+}
+
+/**
+ * 关闭登录弹窗
+ */
+function closeLoginModal() {
+  DOM.loginModal.classList.remove('active');
+}
+
+/**
+ * 检查用户是否已登录
+ * @returns {boolean}
+ */
+function isLoggedIn() {
+  return AppState.currentUser !== null;
+}
+
+function saveUserToStorage(user) {
+  localStorage.setItem('currentUser', JSON.stringify(user));
+}
+
+function loadUserFromStorage() {
+  const stored = localStorage.getItem('currentUser');
+  if (stored) {
+    try {
+      AppState.currentUser = JSON.parse(stored);
+      updateUserUI();
+    } catch (e) {
+      console.error('解析用户信息失败:', e);
+      localStorage.removeItem('currentUser');
+    }
+  }
+}
+
+/**
+ * 执行登录
+ */
+async function handleLogin() {
+  const username = DOM.loginUsername.value.trim();
+  const password = DOM.loginPassword.value.trim();
+  
+  if (!username || !password) {
+    DOM.loginError.textContent = '请输入用户名和密码';
+    return;
+  }
+  
+  try {
+    const response = await apiRequest('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    
+    if (response.success) {
+      AppState.currentUser = response.user;
+      saveUserToStorage(response.user);
+      closeLoginModal();
+      updateUserUI();
+    } else {
+      DOM.loginError.textContent = response.message || '登录失败';
+    }
+  } catch (error) {
+    console.error('登录失败:', error);
+    DOM.loginError.textContent = '登录失败，请稍后重试';
+  }
+}
+
+/**
+ * 更新用户UI（头像等）
+ */
+function updateUserUI() {
+  const isLoggedIn = AppState.currentUser !== null;
+  const displayName = isLoggedIn ? (AppState.currentUser.username || AppState.currentUser.name || '用') : null;
+  
+  if (DOM.adminBtn) {
+    if (isLoggedIn) {
+      DOM.adminBtn.classList.remove('logged-out');
+      DOM.adminAvatarText.textContent = displayName.charAt(0);
+    } else {
+      DOM.adminBtn.classList.add('logged-out');
+    }
+  }
+  
+  if (DOM.mobileAvatarBtn) {
+    if (isLoggedIn) {
+      DOM.mobileAvatarBtn.classList.remove('logged-out');
+      DOM.mobileAvatarText.textContent = displayName.charAt(0);
+    } else {
+      DOM.mobileAvatarBtn.classList.add('logged-out');
+    }
+  }
+}
+
+/**
+ * 点击订单按钮
+ */
+function handleOrdersClick() {
+  if (!isLoggedIn()) {
+    openLoginModal();
+    return;
+  }
+  window.location.href = 'orders.html';
+}
+
 // ==================== 订单结算 ====================
 
 /**
  * 结算订单
  */
 async function handleCheckout() {
+  if (!isLoggedIn()) {
+    closeCartSidebar();
+    openLoginModal();
+    return;
+  }
   if (AppState.cart.length === 0) {
     alert('购物车是空的');
     return;
   }
+  // 检查用户余额是否足够
+if (AppState.currentUser && AppState.currentUser.balance < total) {
+  alert(`余额不足！当前余额: ¥${AppState.currentUser.balance.toFixed(2)}，订单金额: ¥${total.toFixed(2)}`);
+  return;
+}
   
   const total = calculateTotal();
+  const note = DOM.cartNoteInput ? DOM.cartNoteInput.value.trim() : '';
   const items = AppState.cart.map(item => ({
     id: item.id,
     name: item.name,
@@ -710,20 +957,42 @@ async function handleCheckout() {
   }));
   
   try {
-    // 创建订单
-    const orderResult = await createOrder({ items, total });
+    // 创建订单（包含备注）
+    const orderResult = await createOrder({ items, total, note });
     console.log('订单创建成功:', orderResult);
     
     // 结算订单
     const checkoutResult = await checkoutOrder(orderResult.order_number);
     console.log('订单结算成功:', checkoutResult);
     
-    alert(`下单成功！\n订单编号：${orderResult.order_number}\n总价：¥${total.toFixed(2)}`);
+    // 更新用户余额
+    if (AppState.currentUser) {
+      AppState.currentUser.balance = Math.max(0, AppState.currentUser.balance - total);
+      saveUserToStorage(AppState.currentUser);
+      console.log('用户余额更新:', AppState.currentUser.balance);
+    }
+    
+    // 构建订单数据用于小票展示
+    const orderData = {
+      '订单详情': items.map(item => ({
+        '名称': item.name,
+        '数量': item.quantity,
+        '单价': item.price,
+        '小计金额': (item.price * item.quantity).toFixed(2)
+      })),
+      '合计金额': total.toFixed(2),
+      '备注': note,
+      '订单编号': orderResult.order_number
+    };
     
     // 清空购物车
     AppState.cart = [];
     updateCartUI();
     closeCartSidebar();
+    
+    // 跳转到小票页面
+    const orderJson = encodeURIComponent(JSON.stringify(orderData));
+    window.location.href = `receipt.html?order=${orderJson}`;
     
   } catch (error) {
     console.error('结算失败:', error);
@@ -731,7 +1000,54 @@ async function handleCheckout() {
   }
 }
 
-// ==================== 管理员模式 ====================
+// ==================== 用户面板与管理员模式 ====================
+
+/**
+ * 点击用户头像/管理员按钮
+ */
+function handleAvatarClick() {
+  if (!isLoggedIn()) {
+    openLoginModal();
+    return;
+  }
+  
+  if (AppState.currentUser.is_admin) {
+    toggleAdminPanel();
+  } else {
+    toggleUserPanel();
+  }
+}
+
+/**
+ * 切换用户面板
+ */
+function toggleUserPanel() {
+  if (DOM.userPanel.classList.contains('active')) {
+    closeUserPanel();
+  } else {
+    openUserPanel();
+  }
+}
+
+/**
+ * 打开用户面板
+ */
+function openUserPanel() {
+  if (AppState.currentUser) {
+    DOM.userAvatarLarge.textContent = AppState.currentUser.username.charAt(0);
+    DOM.userName.textContent = AppState.currentUser.username;
+    DOM.userId.textContent = `用户ID: ${AppState.currentUser.id}`;
+    DOM.userBalance.textContent = `¥${AppState.currentUser.balance.toFixed(2)}`;
+  }
+  DOM.userPanel.classList.add('active');
+}
+
+/**
+ * 关闭用户面板
+ */
+function closeUserPanel() {
+  DOM.userPanel.classList.remove('active');
+}
 
 /**
  * 切换管理员面板
@@ -741,6 +1057,76 @@ function toggleAdminPanel() {
     closeAdminPanel();
   } else {
     openAdminPanel();
+  }
+}
+
+/**
+ * 打开新增菜品弹窗
+ */
+function openAddDishModal() {
+  DOM.addDishModal.classList.add('active');
+  DOM.addDishName.value = '';
+  DOM.addDishPrice.value = '';
+  DOM.addDishImage.value = '';
+  DOM.addDishDescription.value = '';
+  DOM.addDishDetail.value = '';
+  DOM.addDishIngredients.value = '';
+  DOM.addDishMethod.value = '';
+  DOM.addDishTags.value = '';
+}
+
+/**
+ * 关闭新增菜品弹窗
+ */
+function closeAddDishModal() {
+  DOM.addDishModal.classList.remove('active');
+}
+
+/**
+ * 保存新增菜品
+ */
+async function saveAddDish() {
+  const name = DOM.addDishName.value.trim();
+  const price = parseFloat(DOM.addDishPrice.value);
+  
+  if (!name) {
+    alert('请输入菜品名称');
+    return;
+  }
+  
+  if (isNaN(price) || price <= 0) {
+    alert('请输入有效的价格');
+    return;
+  }
+  
+  const dishData = {
+    name: name,
+    price: price,
+    image: DOM.addDishImage.value.trim() || './img/鲜椒兔.jpg',
+    description: DOM.addDishDescription.value,
+    detail_desc: DOM.addDishDetail.value,
+    ingredients: DOM.addDishIngredients.value,
+    method: DOM.addDishMethod.value,
+    tags: DOM.addDishTags.value
+  };
+  
+  try {
+    console.log('新增菜品数据:', dishData);
+    const response = await apiRequest('/api/dishes', {
+      method: 'POST',
+      body: JSON.stringify(dishData)
+    });
+    console.log('新增菜品成功:', response);
+    
+    const dishesData = await fetchDishes({ page_size: 100 });
+    AppState.dishes = dishesData.dishes || [];
+    filterDishes();
+    renderDishes();
+    closeAddDishModal();
+  } catch (error) {
+    console.error('新增菜品失败:', error);
+    console.error('错误详情:', error.message, error);
+    alert(`新增菜品失败: ${error.message || '请检查网络连接或重试'}`);
   }
 }
 
@@ -758,6 +1144,165 @@ function openAdminPanel() {
 function closeAdminPanel() {
   AppState.isAdmin = false;
   DOM.adminPanel.classList.remove('active');
+}
+
+/**
+ * 切换编辑模式
+ */
+function toggleEditMode() {
+  AppState.editMode = !AppState.editMode;
+  
+  if (AppState.editMode) {
+    DOM.editDishBtn.classList.add('active');
+    closeAdminPanel();
+  } else {
+    DOM.editDishBtn.classList.remove('active');
+  }
+  
+  renderDishes();
+}
+
+/**
+ * 打开编辑菜品弹窗
+ * @param {number} dishId - 菜品ID
+ */
+function openEditDishModal(dishId) {
+  const dish = AppState.dishes.find(d => d.id === dishId);
+  if (!dish) return;
+  
+  DOM.editDishName.value = dish.name || '';
+  DOM.editDishPrice.value = dish.price || '';
+  DOM.editDishImage.value = dish.image || '';
+  DOM.editDishDescription.value = dish.description || '';
+  DOM.editDishDetail.value = dish.detail_desc || '';
+  DOM.editDishIngredients.value = dish.ingredients || '';
+  DOM.editDishMethod.value = dish.method || '';
+  DOM.editDishTags.value = dish.tags || '';
+  
+  DOM.editDishModal.dataset.dishId = dishId;
+  DOM.editDishModal.classList.add('active');
+}
+
+/**
+ * 关闭编辑菜品弹窗
+ */
+function closeEditDishModal() {
+  DOM.editDishModal.classList.remove('active');
+  DOM.editDishForm.reset();
+}
+
+/**
+ * 保存菜品修改
+ */
+async function saveDishEdit() {
+  const dishId = parseInt(DOM.editDishModal.dataset.dishId);
+  if (!dishId) return;
+  
+  const dishData = {
+    name: DOM.editDishName.value,
+    price: parseFloat(DOM.editDishPrice.value),
+    image: DOM.editDishImage.value,
+    description: DOM.editDishDescription.value,
+    detail_desc: DOM.editDishDetail.value,
+    ingredients: DOM.editDishIngredients.value,
+    method: DOM.editDishMethod.value,
+    tags: DOM.editDishTags.value
+  };
+  
+  try {
+    await apiRequest(`/api/dishes/${dishId}`, {
+      method: 'PUT',
+      body: JSON.stringify(dishData)
+    });
+    
+    const dishesData = await fetchDishes({ page_size: 100 });
+    AppState.dishes = dishesData.dishes || [];
+    filterDishes();
+    renderDishes();
+    closeEditDishModal();
+  } catch (error) {
+    console.error('保存菜品失败:', error);
+    alert(`保存菜品失败: ${error.message || '请检查网络连接或重试'}`);
+  }
+}
+
+/**
+ * 删除菜品
+ * @param {number} dishId - 菜品ID
+ */
+function showConfirm(title, message) {
+  return new Promise((resolve) => {
+    DOM.confirmTitle.textContent = title;
+    DOM.confirmMessage.textContent = message;
+    DOM.confirmModal.classList.add('active');
+    
+    const handleOk = () => {
+      cleanup();
+      resolve(true);
+    };
+    
+    const handleCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    
+    const cleanup = () => {
+      DOM.confirmModal.classList.remove('active');
+      DOM.confirmOk.removeEventListener('click', handleOk);
+      DOM.confirmCancel.removeEventListener('click', handleCancel);
+    };
+    
+    DOM.confirmOk.addEventListener('click', handleOk);
+    DOM.confirmCancel.addEventListener('click', handleCancel);
+  });
+}
+
+async function deleteDish(dishId) {
+  const dish = AppState.dishes.find(d => d.id === dishId);
+  if (!dish) return;
+  
+  const confirmed = await showConfirm('确认删除', `确定要删除菜品「${dish.name}」吗？此操作不可恢复。`);
+  
+  if (!confirmed) {
+    return;
+  }
+  
+  try {
+    await apiRequest(`/api/dishes/${dishId}`, {
+      method: 'DELETE'
+    });
+    
+    const dishesData = await fetchDishes({ page_size: 100 });
+    AppState.dishes = dishesData.dishes || [];
+    filterDishes();
+    renderDishes();
+  } catch (error) {
+    console.error('删除菜品失败:', error);
+    alert('删除菜品失败，请重试');
+  }
+}
+
+/**
+ * 执行退出登录
+ */
+async function handleLogout() {
+  try {
+    await apiRequest('/api/logout', { method: 'POST' });
+    AppState.currentUser = null;
+    localStorage.removeItem('currentUser');
+    AppState.isAdmin = false;
+    AppState.editMode = false;
+    closeUserPanel();
+    closeAdminPanel();
+    closeEditDishModal();
+    if (DOM.editDishBtn) {
+      DOM.editDishBtn.classList.remove('active');
+    }
+    updateUserUI();
+    renderDishes();
+  } catch (error) {
+    console.error('退出登录失败:', error);
+  }
 }
 
 // ==================== 移动端适配 ====================
@@ -808,7 +1353,8 @@ function initMobileTagsScroll() {
 function showMobileSubPanel(parentId) {
   if (!AppState.isMobile()) return;
   
-  const parentTag = AppState.tagTree.find(t => t.id === parentId);
+  const parentIdNum = parseInt(parentId, 10);
+  const parentTag = AppState.tagTree.find(t => t.id === parentIdNum);
   if (!parentTag || !parentTag.children || parentTag.children.length === 0) {
     hideMobileSubPanel();
     return;
@@ -817,11 +1363,12 @@ function showMobileSubPanel(parentId) {
   // 构建二级标签chips
   const chipsHtml = parentTag.children.map(child => {
     const isActive = AppState.currentTag === child.name;
+    const activeBg = isActive ? hexToRgba(child.background_color, 0.8) : 'var(--surface)';
+    const activeColor = isActive ? child.text_color : 'var(--text-secondary)';
+    const activeBorder = isActive ? child.background_color : 'var(--border)';
     return `
       <span class="sub-chip ${isActive ? 'active' : ''}" data-mobile-tag="${child.name}"
-        style="background:${isActive ? child.background_color : 'var(--surface)'};
-               color:${isActive ? child.text_color : 'var(--text-secondary)'};
-               border-color:${isActive ? child.background_color : 'var(--border)'}">
+        style="background:${activeBg};color:${activeColor};border-color:${activeBorder}">
         ${child.name}
       </span>
     `;
@@ -835,8 +1382,20 @@ function showMobileSubPanel(parentId) {
       const tag = chip.dataset.mobileTag;
       selectCategory(tag);
       // 更新激活状态
-      DOM.mobileSubPanel.querySelectorAll('.sub-chip').forEach(c => c.classList.remove('active'));
+      DOM.mobileSubPanel.querySelectorAll('.sub-chip').forEach(c => {
+        c.classList.remove('active');
+        c.style.background = 'var(--surface)';
+        c.style.color = 'var(--text-secondary)';
+        c.style.borderColor = 'var(--border)';
+      });
       chip.classList.add('active');
+      const child = parentTag.children.find(c => c.name === tag);
+      if (child) {
+        const bgColor = hexToRgba(child.background_color, 0.8);
+        chip.style.background = bgColor;
+        chip.style.color = child.text_color;
+        chip.style.borderColor = child.background_color;
+      }
     });
   });
   
@@ -871,7 +1430,10 @@ function bindEvents() {
   if (DOM.mobileSearchBtn) {
     DOM.mobileSearchBtn.addEventListener('click', openSearchModal);
   }
-  DOM.searchClose.addEventListener('click', closeSearchModal);
+  DOM.searchClose.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeSearchModal();
+  });
   
   // 搜索输入
   DOM.searchInput.addEventListener('input', (e) => {
@@ -900,10 +1462,28 @@ function bindEvents() {
     }
   });
   
+  // 编辑菜品弹窗背景点击关闭
+  DOM.editDishModal.addEventListener('click', (e) => {
+    if (e.target === DOM.editDishModal) {
+      closeEditDishModal();
+    }
+  });
+  
+  // 新增菜品弹窗背景点击关闭
+  DOM.addDishModal.addEventListener('click', (e) => {
+    if (e.target === DOM.addDishModal) {
+      closeAddDishModal();
+    }
+  });
+  
   // ESC 关闭弹窗
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (DOM.dishModal.classList.contains('active')) {
+      if (DOM.loginModal.classList.contains('active')) {
+        closeLoginModal();
+      } else if (DOM.userPanel.classList.contains('active')) {
+        closeUserPanel();
+      } else if (DOM.dishModal.classList.contains('active')) {
         closeDishModal();
       } else if (DOM.searchModal.classList.contains('active')) {
         closeSearchModal();
@@ -911,6 +1491,10 @@ function bindEvents() {
         closeCartSidebar();
       } else if (DOM.adminPanel.classList.contains('active')) {
         closeAdminPanel();
+      } else if (DOM.editDishModal.classList.contains('active')) {
+        closeEditDishModal();
+      } else if (DOM.addDishModal.classList.contains('active')) {
+        closeAddDishModal();
       }
     }
   });
@@ -920,9 +1504,63 @@ function bindEvents() {
   DOM.cartClose.addEventListener('click', closeCartSidebar);
   DOM.checkoutButton.addEventListener('click', handleCheckout);
   
-  // 管理员
-  DOM.adminBtn.addEventListener('click', toggleAdminPanel);
+  // 订单按钮
+  DOM.ordersBtn.addEventListener('click', handleOrdersClick);
+  
+  // 登录弹窗
+  DOM.loginClose.addEventListener('click', closeLoginModal);
+  DOM.loginButton.addEventListener('click', handleLogin);
+  DOM.loginModal.addEventListener('click', (e) => {
+    if (e.target === DOM.loginModal) {
+      closeLoginModal();
+    }
+  });
+  
+  // 登录表单回车键提交
+  DOM.loginPassword.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
+  });
+  
+  // 用户头像/管理员按钮
+  DOM.adminBtn.addEventListener('click', handleAvatarClick);
+  
+  // 移动端头像按钮
+  DOM.mobileAvatarBtn.addEventListener('click', handleAvatarClick);
+  
+  // 移动端订单按钮
+  DOM.mobileOrdersBtn.addEventListener('click', handleOrdersClick);
+  
+  // 用户面板
+  DOM.userPanelClose.addEventListener('click', closeUserPanel);
+  DOM.userLogoutBtn.addEventListener('click', handleLogout);
+  
+  // 管理员面板
   DOM.adminClose.addEventListener('click', closeAdminPanel);
+  DOM.adminLogoutBtn.addEventListener('click', handleLogout);
+  
+  // 编辑菜品按钮
+  DOM.editDishBtn.addEventListener('click', toggleEditMode);
+  
+  // 编辑菜品弹窗
+  DOM.editDishClose.addEventListener('click', closeEditDishModal);
+  DOM.editDishCancel.addEventListener('click', closeEditDishModal);
+  DOM.editDishForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveDishEdit();
+  });
+  
+  // 新增菜品弹窗
+  DOM.addDishClose.addEventListener('click', closeAddDishModal);
+  DOM.addDishCancel.addEventListener('click', closeAddDishModal);
+  DOM.addDishForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveAddDish();
+  });
+  
+  // 新增菜品按钮
+  DOM.addDishBtn.addEventListener('click', openAddDishModal);
   
   // 窗口大小变化
   window.addEventListener('resize', () => {
@@ -938,6 +1576,24 @@ function bindEvents() {
  */
 async function initApp() {
   try {
+    // 恢复登录状态
+    loadUserFromStorage();
+    
+    // 如果用户已登录，从后端获取最新的用户信息（包括余额）
+    if (AppState.currentUser) {
+      try {
+        const userResponse = await apiRequest('/api/user');
+        if (userResponse.success && userResponse.user) {
+          AppState.currentUser = userResponse.user;
+          saveUserToStorage(userResponse.user);
+          updateUserUI();
+          console.log('用户信息已更新:', AppState.currentUser);
+        }
+      } catch (e) {
+        console.log('获取用户信息失败:', e);
+      }
+    }
+    
     // 显示加载中
     DOM.loading.textContent = '加载中...';
     
@@ -954,22 +1610,6 @@ async function initApp() {
     // 构建标签树
     AppState.tagTree = buildTagTree(AppState.tags);
     
-    // 默认展开第一个有子标签的分类
-    const firstParent = AppState.tagTree.find(t => t.children.length > 0);
-    if (firstParent) {
-      if (AppState.isMobile()) {
-        // 移动端：显示第一个一级分类的二级标签
-        setTimeout(() => {
-          showMobileSubPanel(firstParent.id);
-          const firstHeader = document.querySelector(`.category-header[data-parent-id="${firstParent.id}"]`);
-          if (firstHeader) firstHeader.classList.add('active');
-        }, 100);
-      } else {
-        // 桌面端：展开第一个一级分类
-        AppState.expandedCategories[firstParent.id] = true;
-      }
-    }
-    
     console.log('加载成功 - 菜品:', AppState.dishes.length, '标签:', AppState.tags.length, '一级分类:', AppState.tagTree.length);
     
     // 渲染UI
@@ -978,6 +1618,24 @@ async function initApp() {
     
     // 绑定事件
     bindEvents();
+    
+    // 默认展开第一个有子标签的分类
+    const firstParent = AppState.tagTree.find(t => t.children.length > 0);
+    if (firstParent) {
+      if (AppState.isMobile()) {
+        // 移动端：显示第一个一级分类的二级标签
+        showMobileSubPanel(firstParent.id);
+        const firstHeader = document.querySelector(`.category-header[data-parent-id="${firstParent.id}"]`);
+        if (firstHeader) firstHeader.classList.add('active');
+      } else {
+        // 桌面端：展开第一个一级分类
+        AppState.expandedCategories[firstParent.id] = true;
+        const header = document.querySelector(`.category-header[data-parent-id="${firstParent.id}"]`);
+        const subMenu = document.querySelector(`.sub-categories[data-parent-id="${firstParent.id}"]`);
+        if (header) header.classList.add('expanded');
+        if (subMenu) subMenu.classList.add('open');
+      }
+    }
     
     // 初始化移动端滚动条
     initMobileTagsScroll();

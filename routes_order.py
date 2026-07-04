@@ -138,20 +138,50 @@ def checkout_order(order_id):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # 检查订单是否存在
-    cursor.execute('SELECT * FROM mu_order WHERE odnum = %s', (order_id,))
-    order = cursor.fetchone()
-    
-    if order is None:
+    try:
+        # 检查订单是否存在
+        cursor.execute('SELECT * FROM mu_order WHERE odnum = %s', (order_id,))
+        order = cursor.fetchone()
+        
+        if order is None:
+            conn.close()
+            logger.warning("结算订单失败 - 订单编号: %s 不存在" % order_id)
+            return jsonify({'error': '订单不存在'}), 404
+
+        order_dict = dict(order)
+        total_amount = order_dict.get('heji', 0)
+        user_id = order_dict.get('creatuserid')
+
+        logger.info("结算订单 - 订单编号: %s, 金额: %s, 用户ID: %s" % (order_id, total_amount, user_id))
+
+        # 如果有用户ID，扣除用户余额
+        if user_id:
+            # 获取用户当前余额
+            cursor.execute('SELECT balance FROM mu_users WHERE id = %s', (user_id,))
+            user = cursor.fetchone()
+            
+            if user:
+                current_balance = user.get('balance', 0)
+                new_balance = current_balance - total_amount
+                
+                logger.info("结算订单 - 用户ID: %s, 当前余额: %s, 扣除金额: %s, 新余额: %s" % (user_id, current_balance, total_amount, new_balance))
+                
+                # 更新用户余额
+                cursor.execute('UPDATE mu_users SET balance = %s WHERE id = %s', (new_balance, user_id))
+                logger.info("结算订单 - 用户余额更新成功")
+            else:
+                logger.warning("结算订单 - 用户ID: %s 不存在" % user_id)
+
+        conn.commit()
         conn.close()
-        logger.warning("结算订单失败 - 订单编号: %s 不存在" % order_id)
-        return jsonify({'error': '订单不存在'}), 404
 
-    conn.commit()
-    conn.close()
-
-    logger.info("结算订单成功 - 订单编号: %s" % order_id)
-    return jsonify({'message': '结算成功', 'order_number': order_id})
+        logger.info("结算订单成功 - 订单编号: %s" % order_id)
+        return jsonify({'message': '结算成功', 'order_number': order_id})
+        
+    except Exception as e:
+        logger.error("结算订单失败 - 订单编号: %s, 错误: %s" % (order_id, str(e)))
+        conn.close()
+        return jsonify({'error': '结算失败: %s' % str(e)}), 500
 
 def get_order_list():
     """

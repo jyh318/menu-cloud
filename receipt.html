@@ -358,9 +358,8 @@
                 return;
             }
 
-            const receiptInfo = await fetchReceiptInfo();
-            document.getElementById('order-date').textContent = receiptInfo.order_date;
-            document.getElementById('order-no').textContent = receiptInfo.order_number;
+            document.getElementById('order-date').textContent = formatDate(new Date());
+            document.getElementById('order-no').textContent = orderData['订单编号'] || generateOrderNo();
             document.getElementById('waiter').textContent = '仙仙的饲养员';
             document.getElementById('total-amount').textContent = `¥${orderData['合计金额']}`;
 

@@ -128,5 +128,6 @@ def clear_dish_tags_cache():
     """
     清除菜品标签映射缓存
     """
-    global _dish_tags_cache
+    global _tag_cache, _dish_tags_cache
+    _tag_cache = None
     _dish_tags_cache = None

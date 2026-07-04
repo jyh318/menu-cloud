@@ -187,18 +187,35 @@ def create_dish():
     cursor = conn.cursor()
 
     try:
-        cursor.execute('''
-            INSERT INTO dishes (name, price, image, description, detail_description, method_desc, ingredients_desc)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ''', (
-            data.get('name'),
-            data.get('price'),
-            data.get('image', ''),
-            data.get('description', ''),
-            data.get('detail_desc', ''),
-            data.get('method', ''),
-            data.get('ingredients', '')
-        ))
+        cursor.execute('DESCRIBE dishes')
+        dish_fields = [f['Field'] for f in cursor.fetchall()]
+        
+        insert_fields = ['name', 'price']
+        insert_values = [data.get('name'), data.get('price')]
+        
+        if 'image' in dish_fields:
+            insert_fields.append('image')
+            insert_values.append(data.get('image', ''))
+        if 'description' in dish_fields:
+            insert_fields.append('description')
+            insert_values.append(data.get('description', ''))
+        if 'detail_description' in dish_fields:
+            insert_fields.append('detail_description')
+            insert_values.append(data.get('detail_desc', ''))
+        if 'method' in dish_fields:
+            insert_fields.append('method')
+            insert_values.append(data.get('method', ''))
+        if 'ingredients' in dish_fields:
+            insert_fields.append('ingredients')
+            insert_values.append(data.get('ingredients', ''))
+        
+        placeholders = ', '.join(['%s'] * len(insert_values))
+        fields_str = ', '.join(insert_fields)
+        
+        cursor.execute(f'''
+            INSERT INTO dishes ({fields_str})
+            VALUES ({placeholders})
+        ''', tuple(insert_values))
 
         dish_id = cursor.lastrowid
         
@@ -233,9 +250,10 @@ def create_dish():
         logger.info(f"新增菜品成功 - 菜品ID: {dish_id}, 菜品名称: {data.get('name')}")
         return jsonify({'id': dish_id, 'message': '新增成功'}), 201
     except Exception as e:
-        logger.error(f"新增菜品失败 - 菜品名称: {data.get('name')}, 错误: {e}")
+        logger.error(f"新增菜品失败 - 菜品名称: {data.get('name')}, 错误: {e}, 完整数据: {data}")
         conn.close()
-        return jsonify({'error': '新增失败'}), 500
+        import traceback
+        return jsonify({'error': f'新增失败: {str(e)}'}), 500
 
 def update_dish(dish_id):
     """
