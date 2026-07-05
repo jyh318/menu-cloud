@@ -146,9 +146,12 @@ async function apiRequest(url, options = {}) {
     }
     return data;
   } catch (error) {
-    console.error('API请求错误:', error);
-    throw error;
-  }
+      // 静默处理401错误（session失效是正常现象）
+      if (!error.message || !error.message.includes('401')) {
+        console.error('API请求错误:', error);
+      }
+      throw error;
+    }
 }
 
 /**
@@ -941,13 +944,15 @@ async function handleCheckout() {
     alert('购物车是空的');
     return;
   }
-  // 检查用户余额是否足够
-if (AppState.currentUser && AppState.currentUser.balance < total) {
-  alert(`余额不足！当前余额: ¥${AppState.currentUser.balance.toFixed(2)}，订单金额: ¥${total.toFixed(2)}`);
-  return;
-}
   
   const total = calculateTotal();
+  
+  // 检查用户余额是否足够
+  if (AppState.currentUser && AppState.currentUser.balance < total) {
+    alert(`余额不足！当前余额: ¥${AppState.currentUser.balance.toFixed(2)}，订单金额: ¥${total.toFixed(2)}`);
+    return;
+  }
+  
   const note = DOM.cartNoteInput ? DOM.cartNoteInput.value.trim() : '';
   const items = AppState.cart.map(item => ({
     id: item.id,
@@ -1590,7 +1595,13 @@ async function initApp() {
           console.log('用户信息已更新:', AppState.currentUser);
         }
       } catch (e) {
-        console.log('获取用户信息失败:', e);
+        // 如果后端session已失效（401错误），清除本地存储
+        console.log('获取用户信息失败，可能是session已失效:', e.message);
+        if (e.message && e.message.includes('401')) {
+          AppState.currentUser = null;
+          localStorage.removeItem('currentUser');
+          updateUserUI();
+        }
       }
     }
     
