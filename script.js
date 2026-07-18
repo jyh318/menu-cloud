@@ -17,7 +17,15 @@ const AppState = {
   isAdmin: false,           // 是否管理员模式
   editMode: false,          // 是否编辑模式
   currentUser: null,        // 当前登录用户
-  isMobile: () => window.innerWidth <= 480
+  isMobile: () => window.innerWidth <= 480,
+  // 懒加载相关状态
+  currentPage: 0,           // 当前页码
+  pageSize: 20,             // 每页加载数量
+  totalDishes: 0,           // 当前分类总菜品数量
+  allDishesTotal: 0,        // 全部菜品总数（不随标签筛选变化）
+  hasMoreDishes: true,      // 是否还有更多菜品
+  isLoadingDishes: false,   // 是否正在加载菜品
+  loadSentinel: null        // 滚动哨兵元素
 };
 
 // ==================== DOM 元素引用 ====================
@@ -113,11 +121,13 @@ const DOM = {
  * @returns {string} RGBA颜色值
  */
 function hexToRgba(hex, alpha) {
-  if (!hex || !hex.startsWith('#')) return hex;
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return hex || null;
   
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
+  
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return hex || null;
   
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
@@ -330,14 +340,20 @@ function renderDishCard(dish) {
 /**
  * 渲染所有菜品卡片到网格中
  */
-function renderDishes() {
+function renderDishes(append = false) {
   const dishes = AppState.filteredDishes;
   
   // 更新菜品数量
-  DOM.dishCount.textContent = dishes.length;
+  DOM.dishCount.textContent = AppState.totalDishes || dishes.length;
+  // "全部菜品" 的数量应保持不变，使用 allDishesTotal
   const allCountEl = document.getElementById('all-count');
   if (allCountEl) {
-    allCountEl.textContent = AppState.dishes.length;
+    allCountEl.textContent = AppState.allDishesTotal || AppState.totalDishes || AppState.dishes.length;
+  }
+  // 更新移动端标题旁的菜品数量
+  const mobileCountEl = document.getElementById('mobile-dish-count-num');
+  if (mobileCountEl) {
+    mobileCountEl.textContent = AppState.totalDishes || dishes.length;
   }
   
   if (dishes.length === 0) {
@@ -345,10 +361,21 @@ function renderDishes() {
     return;
   }
   
-  DOM.foodGrid.innerHTML = dishes.map(dish => renderDishCard(dish)).join('');
+  const cardsHtml = dishes.map(dish => renderDishCard(dish)).join('');
+  
+  if (append) {
+    // 追加模式：插入到现有内容之后
+    DOM.foodGrid.insertAdjacentHTML('beforeend', cardsHtml);
+  } else {
+    // 替换模式：清空后重新渲染
+    DOM.foodGrid.innerHTML = cardsHtml;
+  }
   
   // 绑定卡片点击事件
   bindDishCardEvents();
+  
+  // 设置懒加载哨兵
+  setupLazyLoadSentinel();
 }
 
 let foodGridClickHandler = null;
@@ -404,7 +431,21 @@ function bindDishCardEvents() {
 // ==================== 分类/标签管理（一二级结构） ====================
 
 /**
- * 计算每个标签的菜品数量
+ * 异步获取标签对应的菜品数量
+ * @param {string} tagName - 标签名称
+ * @returns {Promise<number>} 菜品数量
+ */
+async function getTagDishCountAsync(tagName) {
+  try {
+    const data = await fetchDishes({ tag: tagName, page: 0, page_size: 1 });
+    return data.total || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
+ * 计算每个标签的菜品数量（同步版本，仅依赖已加载数据）
  * @param {string} tagName - 标签名称
  * @returns {number} 菜品数量
  */
@@ -420,6 +461,51 @@ function getTagDishCount(tagName) {
 }
 
 /**
+ * 异步更新所有分类的菜品数量
+ */
+async function updateCategoryCounts() {
+  // 更新"全部菜品"总数 - 使用 allDishesTotal（不随标签变化）
+  const allCountEl = document.getElementById('all-count');
+  if (allCountEl) {
+    if (AppState.allDishesTotal === 0) {
+      // 首次加载时获取全部菜品总数
+      allCountEl.textContent = '...';
+      try {
+        const data = await fetchDishes({ page: 0, page_size: 1 });
+        AppState.allDishesTotal = data.total || 0;
+      } catch (e) {
+        AppState.allDishesTotal = 0;
+      }
+    }
+    allCountEl.textContent = AppState.allDishesTotal;
+  }
+  
+  // 异步更新每个二级标签的菜品数量
+  const subCategories = document.querySelectorAll('.sub-category[data-tag]');
+  for (const sub of subCategories) {
+    const tagName = sub.dataset.tag;
+    const countEl = sub.querySelector('.sub-category-count');
+    if (countEl) {
+      countEl.textContent = '...';
+      const count = await getTagDishCountAsync(tagName);
+      countEl.textContent = count;
+    }
+  }
+  
+  // 异步更新没有子标签的一级标签的菜品数量（如"饮品"等）
+  const singleCategories = document.querySelectorAll('.category-header[data-tag-name]');
+  for (const header of singleCategories) {
+    const tagName = header.dataset.tagName;
+    const countEl = header.querySelector('.category-count');
+    if (countEl) {
+      countEl.textContent = '...';
+      const count = await getTagDishCountAsync(tagName);
+      countEl.textContent = count;
+    }
+  }
+}
+
+/**
  * 渲染分类侧边栏（一二级结构）
  */
 function renderCategories() {
@@ -428,9 +514,9 @@ function renderCategories() {
   // 生成分类HTML
   let categoryHtml = '';
   
-  // 第一项：全部菜品
-  const allCount = AppState.dishes.length;
-  const isAllActive = !AppState.currentTag;
+  // 第一项：全部菜品 - 使用 allDishesTotal（不随标签变化）
+  const allCount = AppState.allDishesTotal || AppState.totalDishes || AppState.dishes.length || 0;
+  const isAllActive = !AppState.currentTag || AppState.currentTag === 'all';
   categoryHtml += `
     <div class="menu-category" style="animation-delay: 0.05s">
       <div class="category-header ${isAllActive ? 'active' : ''}" data-category="all">
@@ -444,9 +530,25 @@ function renderCategories() {
   `;
   
   tagTree.forEach((parent, pIndex) => {
-    if (parent.children.length === 0) return;
-    
     const isExpanded = AppState.expandedCategories[parent.id] !== false;
+    
+    // 如果没有子标签，一级标签本身可以直接作为筛选标签
+    if (parent.children.length === 0) {
+      const isActive = AppState.currentTag === parent.name;
+      // 初始显示 0 或 '...'，updateCategoryCounts 会异步更新
+      categoryHtml += `
+        <div class="menu-category" style="animation-delay: ${0.05 * (pIndex + 2)}s">
+          <div class="category-header ${isActive ? 'active' : ''}" data-tag-name="${parent.name}">
+            <div class="category-left">
+              <div class="category-icon">${getTagIcon(parent.name)}</div>
+              <span class="category-name">${parent.name}</span>
+            </div>
+            <span class="category-count" data-tag-count="${parent.name}">…</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
     
     categoryHtml += `
       <div class="menu-category" style="animation-delay: ${0.05 * (pIndex + 2)}s">
@@ -493,6 +595,14 @@ function bindCategoryEvents() {
       selectCategory('all');
     });
   }
+  
+  // 没有子标签的一级标签点击 - 直接筛选
+  document.querySelectorAll('.category-header[data-tag-name]').forEach(header => {
+    header.addEventListener('click', () => {
+      const tagName = header.dataset.tagName;
+      selectCategory(tagName);
+    });
+  });
   
   // 一级分类点击 - 展开/折叠
   document.querySelectorAll('.category-header[data-parent-id]').forEach(header => {
@@ -545,11 +655,16 @@ function toggleCategory(parentId) {
 function selectCategory(tag) {
   AppState.currentTag = tag;
   
-  // 更新激活状态
+  // 更新二级标签激活状态
   document.querySelectorAll('.sub-category').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sub-chip').forEach(c => c.classList.remove('active'));
   const activeSub = document.querySelector(`.sub-category[data-tag="${tag}"]`);
   if (activeSub) {
     activeSub.classList.add('active');
+  }
+  const activeChip = document.querySelector(`.sub-chip[data-mobile-tag="${tag}"]`);
+  if (activeChip) {
+    activeChip.classList.add('active');
   }
   
   // 全部菜品按钮状态更新
@@ -562,10 +677,34 @@ function selectCategory(tag) {
     }
   }
   
-  // 移动端：点击全部菜品时隐藏二级面板，点击其他一级分类时不自动隐藏
-  if (AppState.isMobile() && tag === 'all') {
-    hideMobileSubPanel();
-    document.querySelectorAll('.category-header[data-parent-id]').forEach(h => h.classList.remove('active'));
+  // 更新一级标签的激活状态
+  updateParentCategoryActive(tag);
+  
+  // 移动端逻辑处理
+  if (AppState.isMobile()) {
+    if (tag === 'all') {
+      // 点击全部菜品：隐藏二级面板，移除所有一级标签激活
+      hideMobileSubPanel();
+      document.querySelectorAll('.category-header').forEach(h => h.classList.remove('active'));
+    } else {
+      // 查找当前 tag 对应的一级分类
+      const parent = findParentCategory(tag);
+      if (parent) {
+        if (parent.children && parent.children.length > 0) {
+          // 有子标签的一级分类：显示二级面板
+          showMobileSubPanel(parent.id);
+          document.querySelectorAll('.category-header').forEach(h => h.classList.remove('active'));
+          const activeHeader = document.querySelector(`.category-header[data-parent-id="${parent.id}"]`);
+          if (activeHeader) activeHeader.classList.add('active');
+        } else {
+          // 没有子标签的一级分类：隐藏二级面板，将激活状态切换到该一级标签
+          hideMobileSubPanel();
+          document.querySelectorAll('.category-header').forEach(h => h.classList.remove('active'));
+          const activeHeader = document.querySelector(`.category-header[data-tag-name="${parent.name}"]`);
+          if (activeHeader) activeHeader.classList.add('active');
+        }
+      }
+    }
   }
   
   // 筛选菜品
@@ -573,31 +712,186 @@ function selectCategory(tag) {
 }
 
 /**
- * 根据当前条件筛选菜品
+ * 查找 tag 所属的一级分类
+ * @param {string} tag - 标签名称
+ * @returns {object|null} 一级分类对象
  */
-function filterDishes() {
-  let dishes = [...AppState.dishes];
+function findParentCategory(tag) {
+  // 先在 tagTree 的 children 中查找
+  for (const parent of AppState.tagTree) {
+    if (parent.name === tag) {
+      return parent;
+    }
+    if (parent.children && parent.children.some(c => c.name === tag)) {
+      return parent;
+    }
+  }
+  return null;
+}
+
+/**
+ * 更新一级标签的激活状态
+ * @param {string} tag - 当前选中的标签
+ */
+function updateParentCategoryActive(tag) {
+  // 移除所有一级标签的 active 状态
+  document.querySelectorAll('.category-header[data-parent-id]').forEach(h => h.classList.remove('active'));
+  document.querySelectorAll('.category-header[data-tag-name]').forEach(h => h.classList.remove('active'));
   
-  // 按标签筛选
-  if (AppState.currentTag !== 'all') {
-    dishes = dishes.filter(dish => {
-      const dishTags = dish.tags ? dish.tags.split(',').map(t => t.trim()) : [];
-      return dishTags.includes(AppState.currentTag);
+  if (tag === 'all') return;
+  
+  // 查找 tag 所属的一级分类
+  const parent = findParentCategory(tag);
+  if (!parent) return;
+  
+  if (parent.children && parent.children.length > 0) {
+    // 有子标签的一级分类
+    const activeHeader = document.querySelector(`.category-header[data-parent-id="${parent.id}"]`);
+    if (activeHeader) activeHeader.classList.add('active');
+  } else {
+    // 没有子标签的一级分类
+    const activeHeader = document.querySelector(`.category-header[data-tag-name="${parent.name}"]`);
+    if (activeHeader) activeHeader.classList.add('active');
+  }
+}
+
+/**
+ * 根据当前条件筛选菜品（懒加载模式）
+ */
+async function filterDishes() {
+  // 重置分页状态
+  AppState.currentPage = 0;
+  AppState.hasMoreDishes = true;
+  AppState.filteredDishes = [];
+  
+  // 立即查询一次获取总数
+  try {
+    const params = {
+      page: 0,
+      page_size: AppState.pageSize
+    };
+    if (AppState.currentTag !== 'all') {
+      params.tag = AppState.currentTag;
+    }
+    if (AppState.searchKeyword) {
+      params.search = AppState.searchKeyword;
+    }
+    
+    const data = await fetchDishes(params);
+    AppState.filteredDishes = data.dishes || [];
+    AppState.totalDishes = data.total || 0;
+    AppState.hasMoreDishes = data.has_more || false;
+    AppState.currentPage = 1;
+    
+    renderDishes(false);
+  } catch (error) {
+    console.error('筛选菜品失败:', error);
+    DOM.foodGrid.innerHTML = '<div class="loading">加载失败，请重试</div>';
+  }
+}
+
+/**
+ * 加载更多菜品
+ */
+async function loadMoreDishes() {
+  if (AppState.isLoadingDishes || !AppState.hasMoreDishes) {
+    return;
+  }
+  
+  AppState.isLoadingDishes = true;
+  showLazyLoadIndicator(true);
+  
+  try {
+    const params = {
+      page: AppState.currentPage,
+      page_size: AppState.pageSize
+    };
+    if (AppState.currentTag !== 'all') {
+      params.tag = AppState.currentTag;
+    }
+    if (AppState.searchKeyword) {
+      params.search = AppState.searchKeyword;
+    }
+    
+    const data = await fetchDishes(params);
+    const newDishes = data.dishes || [];
+    AppState.filteredDishes = [...AppState.filteredDishes, ...newDishes];
+    AppState.hasMoreDishes = data.has_more || false;
+    AppState.currentPage += 1;
+    
+    renderDishes(true);
+  } catch (error) {
+    console.error('加载更多菜品失败:', error);
+  } finally {
+    AppState.isLoadingDishes = false;
+    showLazyLoadIndicator(false);
+  }
+}
+
+/**
+ * 设置懒加载哨兵元素
+ */
+function setupLazyLoadSentinel() {
+  // 移除旧的哨兵
+  if (AppState.loadSentinel) {
+    AppState.loadSentinel.remove();
+    AppState.loadSentinel = null;
+  }
+  
+  // 移除旧的完成提示
+  const oldComplete = document.getElementById('load-complete');
+  if (oldComplete) {
+    oldComplete.remove();
+  }
+  
+  if (!AppState.hasMoreDishes) {
+    // 没有更多数据，显示完成提示
+    if (AppState.filteredDishes.length > 0) {
+      const complete = document.createElement('div');
+      complete.id = 'load-complete';
+      complete.className = 'load-complete';
+      complete.textContent = '已经到底了';
+      DOM.foodGrid.parentElement.appendChild(complete);
+    }
+    return;
+  }
+  
+  // 创建新的哨兵元素
+  const sentinel = document.createElement('div');
+  sentinel.id = 'load-sentinel';
+  sentinel.className = 'load-sentinel';
+  sentinel.innerHTML = '<div class="lazy-load-indicator">加载中...</div>';
+  DOM.foodGrid.parentElement.appendChild(sentinel);
+  AppState.loadSentinel = sentinel;
+  
+  // 使用 IntersectionObserver 监听
+  if (window.lazyLoadObserver) {
+    window.lazyLoadObserver.disconnect();
+  }
+  
+  window.lazyLoadObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !AppState.isLoadingDishes && AppState.hasMoreDishes) {
+        loadMoreDishes();
+      }
     });
-  }
+  }, {
+    rootMargin: '200px'
+  });
   
-  // 按搜索关键词筛选
-  if (AppState.searchKeyword) {
-    const keyword = AppState.searchKeyword.toLowerCase();
-    dishes = dishes.filter(dish => 
-      dish.name.toLowerCase().includes(keyword) ||
-      (dish.description && dish.description.toLowerCase().includes(keyword)) ||
-      String(dish.price).includes(keyword)
-    );
+  window.lazyLoadObserver.observe(sentinel);
+}
+
+/**
+ * 显示/隐藏懒加载指示器
+ */
+function showLazyLoadIndicator(show) {
+  if (AppState.loadSentinel) {
+    const indicator = AppState.loadSentinel.querySelector('.lazy-load-indicator');
+    if (indicator) {
+      indicator.style.display = show ? 'block' : 'none';
+    }
   }
-  
-  AppState.filteredDishes = dishes;
-  renderDishes();
 }
 
 // ==================== 搜索功能 ====================
@@ -632,11 +926,20 @@ function performSearch(keyword) {
 // ==================== 菜品详情弹窗 ====================
 
 /**
+ * 查找菜品（优先从已加载的筛选结果中查找）
+ * @param {number} dishId - 菜品ID
+ * @returns {object|null} 菜品对象
+ */
+function findDish(dishId) {
+  return AppState.filteredDishes.find(d => d.id === dishId);
+}
+
+/**
  * 显示菜品详情
  * @param {number} dishId - 菜品ID
  */
 function showDishDetail(dishId) {
-  const dish = AppState.dishes.find(d => d.id === dishId);
+  const dish = findDish(dishId);
   if (!dish) return;
   
   const imageSrc = getDishImage(dish.image);
@@ -697,7 +1000,7 @@ function closeDishModal() {
  * @param {number} dishId - 菜品ID
  */
 function addToCart(dishId) {
-  const dish = AppState.dishes.find(d => d.id === dishId);
+  const dish = findDish(dishId);
   if (!dish) return;
   
   const existingItem = AppState.cart.find(item => item.id === dishId);
@@ -1123,10 +1426,8 @@ async function saveAddDish() {
     });
     console.log('新增菜品成功:', response);
     
-    const dishesData = await fetchDishes({ page_size: 100 });
-    AppState.dishes = dishesData.dishes || [];
-    filterDishes();
-    renderDishes();
+    // 重新加载当前分类的菜品
+    await filterDishes();
     closeAddDishModal();
   } catch (error) {
     console.error('新增菜品失败:', error);
@@ -1172,7 +1473,7 @@ function toggleEditMode() {
  * @param {number} dishId - 菜品ID
  */
 function openEditDishModal(dishId) {
-  const dish = AppState.dishes.find(d => d.id === dishId);
+  const dish = findDish(dishId);
   if (!dish) return;
   
   DOM.editDishName.value = dish.name || '';
@@ -1220,10 +1521,8 @@ async function saveDishEdit() {
       body: JSON.stringify(dishData)
     });
     
-    const dishesData = await fetchDishes({ page_size: 100 });
-    AppState.dishes = dishesData.dishes || [];
-    filterDishes();
-    renderDishes();
+    // 重新加载当前分类的菜品
+    await filterDishes();
     closeEditDishModal();
   } catch (error) {
     console.error('保存菜品失败:', error);
@@ -1263,7 +1562,7 @@ function showConfirm(title, message) {
 }
 
 async function deleteDish(dishId) {
-  const dish = AppState.dishes.find(d => d.id === dishId);
+  const dish = findDish(dishId);
   if (!dish) return;
   
   const confirmed = await showConfirm('确认删除', `确定要删除菜品「${dish.name}」吗？此操作不可恢复。`);
@@ -1277,10 +1576,8 @@ async function deleteDish(dishId) {
       method: 'DELETE'
     });
     
-    const dishesData = await fetchDishes({ page_size: 100 });
-    AppState.dishes = dishesData.dishes || [];
-    filterDishes();
-    renderDishes();
+    // 重新加载当前分类的菜品
+    await filterDishes();
   } catch (error) {
     console.error('删除菜品失败:', error);
     alert('删除菜品失败，请重试');
@@ -1368,9 +1665,12 @@ function showMobileSubPanel(parentId) {
   // 构建二级标签chips
   const chipsHtml = parentTag.children.map(child => {
     const isActive = AppState.currentTag === child.name;
-    const activeBg = isActive ? hexToRgba(child.background_color, 0.8) : 'var(--surface)';
-    const activeColor = isActive ? child.text_color : 'var(--text-secondary)';
-    const activeBorder = isActive ? child.background_color : 'var(--border)';
+    const hasColor = child.background_color && child.text_color;
+    const fallbackBg = 'var(--accent)';
+    const fallbackColor = '#fff';
+    const activeBg = isActive ? hexToRgba(child.background_color, 0.8) || fallbackBg : 'var(--surface)';
+    const activeColor = isActive ? child.text_color || fallbackColor : 'var(--text-secondary)';
+    const activeBorder = isActive ? child.background_color || fallbackBg : 'var(--border)';
     return `
       <span class="sub-chip ${isActive ? 'active' : ''}" data-mobile-tag="${child.name}"
         style="background:${activeBg};color:${activeColor};border-color:${activeBorder}">
@@ -1385,8 +1685,16 @@ function showMobileSubPanel(parentId) {
   DOM.mobileSubPanel.querySelectorAll('.sub-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const tag = chip.dataset.mobileTag;
-      selectCategory(tag);
-      // 更新激活状态
+      // 调用 selectCategory 会重建 sub-panel，因此先更新 active 状态
+      // 找到当前 chip 对应的 child 颜色信息
+      const child = parentTag.children.find(c => c.name === tag);
+      const fallbackBg = 'var(--accent)';
+      const fallbackColor = '#fff';
+      const bgColor = child ? (hexToRgba(child.background_color, 0.8) || fallbackBg) : fallbackBg;
+      const colorText = child ? (child.text_color || fallbackColor) : fallbackColor;
+      const borderColor = child ? (child.background_color || fallbackBg) : fallbackBg;
+      
+      // 1. 立即更新所有 chip 的样式（基于当前 DOM）
       DOM.mobileSubPanel.querySelectorAll('.sub-chip').forEach(c => {
         c.classList.remove('active');
         c.style.background = 'var(--surface)';
@@ -1394,13 +1702,13 @@ function showMobileSubPanel(parentId) {
         c.style.borderColor = 'var(--border)';
       });
       chip.classList.add('active');
-      const child = parentTag.children.find(c => c.name === tag);
-      if (child) {
-        const bgColor = hexToRgba(child.background_color, 0.8);
-        chip.style.background = bgColor;
-        chip.style.color = child.text_color;
-        chip.style.borderColor = child.background_color;
-      }
+      chip.style.background = bgColor;
+      chip.style.color = colorText;
+      chip.style.borderColor = borderColor;
+      
+      // 2. 调用 selectCategory（会重建 sub-panel，但因为 AppState.currentTag 已设置，
+      //    重建后的 chip 也会正确显示为 active 状态）
+      selectCategory(tag);
     });
   });
   
@@ -1608,36 +1916,41 @@ async function initApp() {
     // 显示加载中
     DOM.loading.textContent = '加载中...';
     
-    // 并行加载菜品和标签
-    const [dishesData, tagsData] = await Promise.all([
-      fetchDishes({ page_size: 100 }),
-      fetchTags()
-    ]);
-    
-    AppState.dishes = dishesData.dishes || [];
-    AppState.filteredDishes = [...AppState.dishes];
+    // 加载标签
+    const tagsData = await fetchTags();
     AppState.tags = tagsData || [];
     
     // 构建标签树
     AppState.tagTree = buildTagTree(AppState.tags);
     
-    console.log('加载成功 - 菜品:', AppState.dishes.length, '标签:', AppState.tags.length, '一级分类:', AppState.tagTree.length);
+    // 加载菜品（懒加载模式）
+    await filterDishes();
+    
+    console.log('加载成功 - 标签:', AppState.tags.length, '一级分类:', AppState.tagTree.length, '总菜品:', AppState.totalDishes);
     
     // 渲染UI
     renderCategories();
-    renderDishes();
+    
+    // 异步更新各分类菜品数量
+    updateCategoryCounts();
     
     // 绑定事件
     bindEvents();
     
-    // 默认展开第一个有子标签的分类
+    // 默认展开第一个有子标签的分类（仅 PC 端展开二级菜单，不激活）
     const firstParent = AppState.tagTree.find(t => t.children.length > 0);
     if (firstParent) {
       if (AppState.isMobile()) {
-        // 移动端：显示第一个一级分类的二级标签
-        showMobileSubPanel(firstParent.id);
-        const firstHeader = document.querySelector(`.category-header[data-parent-id="${firstParent.id}"]`);
-        if (firstHeader) firstHeader.classList.add('active');
+        // 移动端：默认"全部菜品"被选中，不显示任何二级标签面板
+        // 隐藏二级面板，确保 "全部菜品" 是唯一的激活状态
+        hideMobileSubPanel();
+        document.querySelectorAll('.category-header').forEach(h => {
+          if (h.dataset.category !== 'all') {
+            h.classList.remove('active');
+          } else {
+            h.classList.add('active');
+          }
+        });
       } else {
         // 桌面端：展开第一个一级分类
         AppState.expandedCategories[firstParent.id] = true;

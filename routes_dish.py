@@ -95,6 +95,7 @@ def get_dishes():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # 构建基础查询条件
     query = 'SELECT * FROM dishes WHERE 1=1'
     params = []
 
@@ -104,31 +105,57 @@ def get_dishes():
         params.append(f'%{search}%')
         params.append(f'%{search}%')
 
-    cursor.execute(query, params)
-    all_dishes = [dict(row) for row in cursor.fetchall()]
+    # 先查询总数
+    count_query = query.replace('SELECT *', 'SELECT COUNT(*) as total', 1)
+    cursor.execute(count_query, params)
+    total_result = cursor.fetchone()
+    total = total_result['total'] if total_result else 0
+    
+    # 如果有标签筛选，需要在内存中筛选
+    if tag_filter:
+        # 查询所有数据用于标签筛选
+        cursor.execute(query, params)
+        all_dishes = [dict(row) for row in cursor.fetchall()]
+        
+        tag_cache, dish_tags_map = get_tag_caches()
+        for dish in all_dishes:
+            process_dish_tags(dish, tag_cache, dish_tags_map)
+        
+        all_dishes = [dish for dish in all_dishes if tag_filter in dish['tags']]
+        total = len(all_dishes)
+        start = page * page_size
+        end = start + page_size
+        dishes = all_dishes[start:end]
+    else:
+        # 没有标签筛选时使用SQL分页
+        start = page * page_size
+        query += ' LIMIT %s OFFSET %s'
+        params.append(page_size)
+        params.append(start)
+        
+        cursor.execute(query, params)
+        all_dishes = [dict(row) for row in cursor.fetchall()]
+        
+        tag_cache, dish_tags_map = get_tag_caches()
+        for dish in all_dishes:
+            process_dish_tags(dish, tag_cache, dish_tags_map)
+        
+        dishes = all_dishes
+        start = page * page_size
+        end = start + len(dishes)
+
     conn.close()
 
-    tag_cache, dish_tags_map = get_tag_caches()
+    has_more = end < total
 
-    for dish in all_dishes:
-        process_dish_tags(dish, tag_cache, dish_tags_map)
-
-    if tag_filter:
-        all_dishes = [dish for dish in all_dishes if tag_filter in dish['tags']]
-
-    total = len(all_dishes)
-    start = page * page_size
-    end = start + page_size
-    dishes = all_dishes[start:end]
-
-    logger.info(f"查询菜品列表成功 - 总数: {total}, 返回数量: {len(dishes)}")
+    logger.info(f"查询菜品列表成功 - 总数: {total}, 返回数量: {len(dishes)}, 是否有更多: {has_more}")
 
     return jsonify({
         'dishes': dishes,
         'total': total,
         'page': page,
         'page_size': page_size,
-        'has_more': end < total
+        'has_more': has_more
     })
 
 def get_dish(dish_id):
@@ -190,8 +217,15 @@ def create_dish():
         cursor.execute('DESCRIBE dishes')
         dish_fields = [f['Field'] for f in cursor.fetchall()]
         
+        # 处理 price 字段，确保是数字
+        price_val = data.get('price')
+        try:
+            price_val = float(price_val) if price_val is not None else 0
+        except (ValueError, TypeError):
+            price_val = 0
+        
         insert_fields = ['name', 'price']
-        insert_values = [data.get('name'), data.get('price')]
+        insert_values = [data.get('name'), price_val]
         
         if 'image' in dish_fields:
             insert_fields.append('image')
@@ -299,7 +333,13 @@ def update_dish(dish_id):
         update_values.append(data.get('name'))
     if 'price' in dish_fields:
         update_fields.append('price = %s')
-        update_values.append(data.get('price'))
+        price_val = data.get('price')
+        # 尝试将 price 转换为数字
+        try:
+            price_val = float(price_val) if price_val is not None else 0
+        except (ValueError, TypeError):
+            price_val = 0
+        update_values.append(price_val)
     if 'image' in dish_fields:
         update_fields.append('image = %s')
         update_values.append(data.get('image', ''))
@@ -309,10 +349,16 @@ def update_dish(dish_id):
     if 'detail_description' in dish_fields:
         update_fields.append('detail_description = %s')
         update_values.append(data.get('detail_desc', ''))
-    if 'method_desc' in dish_fields:
+    if 'method' in dish_fields:
+        update_fields.append('method = %s')
+        update_values.append(data.get('method', ''))
+    elif 'method_desc' in dish_fields:
         update_fields.append('method_desc = %s')
         update_values.append(data.get('method', ''))
-    if 'ingredients_desc' in dish_fields:
+    if 'ingredients' in dish_fields:
+        update_fields.append('ingredients = %s')
+        update_values.append(data.get('ingredients', ''))
+    elif 'ingredients_desc' in dish_fields:
         update_fields.append('ingredients_desc = %s')
         update_values.append(data.get('ingredients', ''))
 
