@@ -361,18 +361,19 @@ function renderDishes(append = false) {
     return;
   }
   
-  const cardsHtml = dishes.map(dish => renderDishCard(dish)).join('');
-  
   if (append) {
-    // 追加模式：插入到现有内容之后
+    // 追加模式：只渲染最近一次新增的菜品，避免重复
+    // 找出当前已渲染的菜品数量
+    const existingCount = DOM.foodGrid.querySelectorAll('.food-card').length;
+    const newDishes = dishes.slice(existingCount);
+    if (newDishes.length === 0) return;
+    const cardsHtml = newDishes.map(dish => renderDishCard(dish)).join('');
     DOM.foodGrid.insertAdjacentHTML('beforeend', cardsHtml);
   } else {
     // 替换模式：清空后重新渲染
+    const cardsHtml = dishes.map(dish => renderDishCard(dish)).join('');
     DOM.foodGrid.innerHTML = cardsHtml;
   }
-  
-  // 绑定卡片点击事件
-  bindDishCardEvents();
   
   // 设置懒加载哨兵
   setupLazyLoadSentinel();
@@ -1930,6 +1931,9 @@ async function initApp() {
     
     // 渲染UI
     renderCategories();
+    
+    // 绑定菜品卡片事件
+    bindDishCardEvents();
     
     // 异步更新各分类菜品数量
     updateCategoryCounts();
