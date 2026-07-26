@@ -44,6 +44,7 @@ from routes_tag import register_tag_routes
 from routes_order import create_order, checkout_order, get_order_list, get_order_detail
 from routes_auth import register_auth_routes
 from routes_daily import register_daily_routes
+from routes_ops import register_ops_routes
 
 # ==================== 应用初始化 ====================
 
@@ -111,6 +112,7 @@ register_dish_routes(app)
 register_tag_routes(app)
 register_auth_routes(app)
 register_daily_routes(app)
+register_ops_routes(app)
 
 # ==================== 应用启动 ====================
 

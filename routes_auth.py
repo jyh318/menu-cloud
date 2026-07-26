@@ -220,6 +220,7 @@ def register_auth_routes(app):
     app.route('/api/user', methods=['GET'])(get_current_user)
     app.route('/api/check_login', methods=['GET'])(check_login)
     app.route('/api/user/deduct_balance', methods=['POST'])(deduct_balance_route)
+    app.route('/api/user/password', methods=['POST'])(change_password)
 
 def deduct_balance_route():
     """
@@ -233,3 +234,86 @@ def deduct_balance_route():
         return jsonify({'success': False, 'message': '参数错误'}), 400
     
     return deduct_balance(user_id, float(amount))
+
+
+def change_password():
+    """
+    修改密码
+    
+    请求体：
+    - old_password: 历史密码
+    - new_password: 新密码
+    - confirm_password: 确认新密码
+    
+    返回：
+    - success: 是否成功
+    - message: 提示信息
+    """
+    data = request.json
+    old_password = (data.get('old_password') or '').strip()
+    new_password = (data.get('new_password') or '').strip()
+    confirm_password = (data.get('confirm_password') or '').strip()
+    
+    # 1. 基础校验
+    errors = {}
+    if not old_password:
+        errors['old_password'] = '请输入历史密码'
+    if not new_password:
+        errors['new_password'] = '请输入新密码'
+    elif len(new_password) < 4:
+        errors['new_password'] = '新密码至少需要 4 位'
+    if not confirm_password:
+        errors['confirm_password'] = '请再次输入新密码'
+    
+    if errors:
+        return jsonify({'success': False, 'message': '请完整填写密码信息', 'errors': errors}), 400
+    
+    # 2. 新旧密码一致校验
+    if new_password == old_password:
+        return jsonify({'success': False, 'message': '新密码不能与历史密码相同', 'errors': {'new_password': '新密码不能与历史密码相同'}}), 400
+    
+    # 3. 两次新密码一致校验
+    if new_password != confirm_password:
+        return jsonify({'success': False, 'message': '两次输入的新密码不一致', 'errors': {'confirm_password': '两次输入的新密码不一致'}}), 400
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': '未登录'}), 401
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # 4. 校验历史密码
+        cursor.execute('SELECT id, password FROM mu_users WHERE id = %s', (user_id,))
+        user = cursor.fetchone()
+        
+        if user is None:
+            return jsonify({'success': False, 'message': '用户不存在'}), 404
+        
+        expected_hash = md5_hash(old_password)
+        if user['password'] != expected_hash:
+            return jsonify({
+                'success': False,
+                'message': '历史密码不正确，请重新输入',
+                'errors': {'old_password': '历史密码不正确，请重新输入'}
+            }), 401
+        
+        # 5. 更新为新密码（MD5 加密）
+        new_hash = md5_hash(new_password)
+        cursor.execute('UPDATE mu_users SET password = %s WHERE id = %s', (new_hash, user_id))
+        conn.commit()
+        
+        logger.info(f"密码修改成功 - 用户ID: {user_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': '密码修改成功'
+        }), 200
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"密码修改失败 - 错误: {str(e)}")
+        return jsonify({'success': False, 'message': '密码修改失败'}), 500
+    finally:
+        conn.close()

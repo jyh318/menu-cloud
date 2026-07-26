@@ -99,6 +99,17 @@ const DOM = {
   userBalance: document.getElementById('user-balance'),
   userLogoutBtn: document.getElementById('user-logout-btn'),
   adminLogoutBtn: document.getElementById('admin-logout-btn'),
+  openChangePasswordBtn: document.getElementById('open-change-password-btn'),
+  changePasswordModal: document.getElementById('change-password-modal'),
+  changePasswordClose: document.getElementById('change-password-close'),
+  changePasswordCancel: document.getElementById('change-password-cancel'),
+  changePasswordForm: document.getElementById('change-password-form'),
+  oldPasswordInput: document.getElementById('old-password'),
+  newPasswordInput: document.getElementById('new-password'),
+  confirmPasswordInput: document.getElementById('confirm-password'),
+  oldPasswordError: document.getElementById('old-password-error'),
+  newPasswordError: document.getElementById('new-password-error'),
+  confirmPasswordError: document.getElementById('confirm-password-error'),
   mobileSubPanel: document.getElementById('mobileSubPanel'),
   mobileOrdersBtn: document.getElementById('mobile-orders-btn'),
   mobileAvatarBtn: document.getElementById('mobile-avatar-btn'),
@@ -114,7 +125,30 @@ const DOM = {
   confirmTitle: document.getElementById('confirm-title'),
   confirmMessage: document.getElementById('confirm-message'),
   confirmOk: document.getElementById('confirm-ok'),
-  confirmCancel: document.getElementById('confirm-cancel')
+  confirmCancel: document.getElementById('confirm-cancel'),
+  opsBtn: document.getElementById('ops-btn'),
+  opsModal: document.getElementById('ops-modal'),
+  opsClose: document.getElementById('ops-close'),
+  opsTabs: document.querySelectorAll('.ops-tab'),
+  opsPanels: document.querySelectorAll('.ops-panel'),
+  dbTestBtn: document.getElementById('db-test-btn'),
+  dbTestResult: document.getElementById('db-test-result'),
+  dbTestStatus: document.getElementById('db-test-status'),
+  dbTestBody: document.getElementById('db-test-body'),
+  opsUserSelect: document.getElementById('ops-user-select'),
+  opsNewPassword: document.getElementById('ops-new-password'),
+  opsResetPwdBtn: document.getElementById('ops-reset-pwd-btn'),
+  opsResetPwdResult: document.getElementById('ops-reset-pwd-result'),
+  opsResetPwdStatus: document.getElementById('ops-reset-pwd-status'),
+  opsResetPwdBody: document.getElementById('ops-reset-pwd-body'),
+  opsApiMethod: document.getElementById('ops-api-method'),
+  opsApiUrl: document.getElementById('ops-api-url'),
+  opsApiBody: document.getElementById('ops-api-body'),
+  opsApiTestBtn: document.getElementById('ops-api-test-btn'),
+  opsApiResult: document.getElementById('ops-api-result'),
+  opsApiStatus: document.getElementById('ops-api-status'),
+  opsApiElapsed: document.getElementById('ops-api-elapsed'),
+  opsApiBodyResult: document.getElementById('ops-api-body-result')
 };
 
 // ==================== 工具函数 ====================
@@ -157,12 +191,15 @@ async function apiRequest(url, options = {}) {
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || '请求失败');
+      const err = new Error(data.message || data.error || '请求失败');
+      err.status = response.status;
+      err.errors = data.errors || null;
+      err.success = data.success;
+      throw err;
     }
     return data;
   } catch (error) {
-      // 静默处理401错误（session失效是正常现象）
-      if (!error.message || !error.message.includes('401')) {
+      if (!error.status || error.status !== 401) {
         console.error('API请求错误:', error);
       }
       throw error;
@@ -1661,6 +1698,146 @@ function closeUserPanel() {
 }
 
 /**
+ * 打开修改密码弹窗
+ */
+function openChangePasswordModal() {
+  if (!DOM.changePasswordModal) return;
+  clearChangePasswordErrors();
+  DOM.changePasswordForm.reset();
+  DOM.changePasswordModal.classList.add('active');
+  // 自动聚焦到历史密码
+  setTimeout(() => { if (DOM.oldPasswordInput) DOM.oldPasswordInput.focus(); }, 50);
+}
+
+/**
+ * 关闭修改密码弹窗
+ */
+function closeChangePasswordModal() {
+  if (!DOM.changePasswordModal) return;
+  DOM.changePasswordModal.classList.remove('active');
+  clearChangePasswordErrors();
+}
+
+/**
+ * 清除修改密码表单的所有错误提示
+ */
+function clearChangePasswordErrors() {
+  if (!DOM.changePasswordForm) return;
+  DOM.changePasswordForm.querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
+  if (DOM.oldPasswordError) DOM.oldPasswordError.textContent = '';
+  if (DOM.newPasswordError) DOM.newPasswordError.textContent = '';
+  if (DOM.confirmPasswordError) DOM.confirmPasswordError.textContent = '';
+  [DOM.oldPasswordInput, DOM.newPasswordInput, DOM.confirmPasswordInput].forEach(input => {
+    if (input) input.classList.remove('has-error');
+  });
+}
+
+/**
+ * 在指定字段上显示错误
+ * @param {'old_password'|'new_password'|'confirm_password'} field
+ * @param {string} message
+ */
+function setFieldError(field, message) {
+  const map = {
+    old_password: { input: DOM.oldPasswordInput, err: DOM.oldPasswordError },
+    new_password: { input: DOM.newPasswordInput, err: DOM.newPasswordError },
+    confirm_password: { input: DOM.confirmPasswordInput, err: DOM.confirmPasswordError }
+  };
+  const m = map[field];
+  if (!m) return;
+  if (m.err) m.err.textContent = message || '';
+  if (m.input) {
+    m.input.classList.add('has-error');
+    const group = m.input.closest('.form-group');
+    if (group) group.classList.add('has-error');
+  }
+}
+
+/**
+ * 前端校验修改密码表单
+ * @returns {string[]} 需要高亮的错误字段数组
+ */
+function validateChangePasswordForm() {
+  const errors = {};
+  const oldPwd = (DOM.oldPasswordInput?.value || '').trim();
+  const newPwd = (DOM.newPasswordInput?.value || '').trim();
+  const confirmPwd = (DOM.confirmPasswordInput?.value || '').trim();
+
+  if (!oldPwd) errors.old_password = '请输入历史密码';
+  if (!newPwd) errors.new_password = '请输入新密码';
+  else if (newPwd.length < 4) errors.new_password = '新密码至少需要 4 位';
+  if (!confirmPwd) errors.confirm_password = '请再次输入新密码';
+
+  if (newPwd && newPwd === oldPwd) {
+    errors.new_password = '新密码不能与历史密码相同';
+  }
+
+  if (newPwd && confirmPwd && newPwd !== confirmPwd) {
+    errors.confirm_password = '两次输入的新密码不一致';
+  }
+
+  Object.keys(errors).forEach(k => setFieldError(k, errors[k]));
+  return errors;
+}
+
+/**
+ * 提交修改密码请求
+ */
+async function submitChangePassword() {
+  const errors = validateChangePasswordForm();
+  if (Object.keys(errors).length > 0) {
+    // 聚焦到第一个错误字段
+    const firstKey = Object.keys(errors)[0];
+    const map = { old_password: DOM.oldPasswordInput, new_password: DOM.newPasswordInput, confirm_password: DOM.confirmPasswordInput };
+    if (map[firstKey]) map[firstKey].focus();
+    return;
+  }
+
+  const oldPwd = DOM.oldPasswordInput.value.trim();
+  const newPwd = DOM.newPasswordInput.value.trim();
+  const confirmPwd = DOM.confirmPasswordInput.value.trim();
+  const submitBtn = document.getElementById('change-password-submit');
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '提交中...';
+  }
+
+  try {
+    const data = await apiRequest('/api/user/password', {
+      method: 'POST',
+      body: JSON.stringify({
+        old_password: oldPwd,
+        new_password: newPwd,
+        confirm_password: confirmPwd
+      })
+    });
+
+    if (data.success) {
+      showToast('密码修改成功');
+      closeChangePasswordModal();
+    } else {
+      if (data.errors) {
+        Object.keys(data.errors).forEach(k => setFieldError(k, data.errors[k]));
+      }
+      if (!data.errors) {
+        showToast(data.message || '密码修改失败');
+      }
+    }
+  } catch (e) {
+    if (e && e.errors) {
+      Object.keys(e.errors).forEach(k => setFieldError(k, e.errors[k]));
+    }
+    showToast(e.message || '密码修改失败');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '确认修改';
+    }
+  }
+}
+
+/**
  * 切换管理员面板
  */
 function toggleAdminPanel() {
@@ -1784,9 +1961,37 @@ function getCurrentDailyRecommendDish() {
   const card = document.getElementById('daily-recommend-card');
   if (!card || !card.dataset.dishId) return null;
   const dishId = card.dataset.dishId;
-  // 兼容字符串和数字类型
-  return AppState.dishes.find(d => d.id == dishId) 
+  // 优先使用已加载的菜品列表中的完整数据
+  const dish = AppState.dishes.find(d => d.id == dishId)
     || AppState.filteredDishes.find(d => d.id == dishId);
+  if (dish) return dish;
+
+  // 回退方案：直接从卡片 DOM 读取必要信息，构造一个临时 dish 对象
+  // （用于随机每日推荐、未完整加载时的场景）
+  const nameEl = card.querySelector('.dr-name');
+  const priceEl = card.querySelector('.dr-price');
+  const imgEl = card.querySelector('.dr-image img');
+  const imgPlaceholder = card.querySelector('.dr-image-placeholder');
+
+  if (!nameEl) return null;
+
+  const priceText = (priceEl?.textContent || '').replace(/[^\d.]/g, '');
+  // 标签列表
+  const tagDetails = Array.from(card.querySelectorAll('.dr-tag')).map(span => ({
+    name: span.textContent.trim(),
+    background_color: span.style.background || '',
+    text_color: span.style.color || '#fff'
+  }));
+
+  return {
+    id: Number(dishId),
+    name: nameEl.textContent.trim(),
+    price: priceText ? Number(priceText) : 0,
+    image: imgEl ? imgEl.src : (imgPlaceholder ? '' : ''),
+    tag_details: tagDetails,
+    description: '',
+    detail_description: ''
+  };
 }
 
 /**
@@ -2200,6 +2405,37 @@ function bindEvents() {
   // 用户面板
   DOM.userPanelClose.addEventListener('click', closeUserPanel);
   DOM.userLogoutBtn.addEventListener('click', handleLogout);
+
+  // 修改密码弹窗
+  if (DOM.openChangePasswordBtn) {
+    DOM.openChangePasswordBtn.addEventListener('click', () => {
+      closeUserPanel();
+      openChangePasswordModal();
+    });
+  }
+  if (DOM.changePasswordClose) DOM.changePasswordClose.addEventListener('click', closeChangePasswordModal);
+  if (DOM.changePasswordCancel) DOM.changePasswordCancel.addEventListener('click', closeChangePasswordModal);
+  if (DOM.changePasswordForm) {
+    DOM.changePasswordForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitChangePassword();
+    });
+    // 输入时清除对应字段的错误提示
+    [DOM.oldPasswordInput, DOM.newPasswordInput, DOM.confirmPasswordInput].forEach(input => {
+      if (!input) return;
+      input.addEventListener('input', () => {
+        const group = input.closest('.form-group');
+        if (group) group.classList.remove('has-error');
+        input.classList.remove('has-error');
+        const errEl = document.getElementById(input.id + '-error');
+        if (errEl) errEl.textContent = '';
+      });
+    });
+    // ESC 关闭
+    DOM.changePasswordModal.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeChangePasswordModal();
+    });
+  }
   
   // 管理员面板
   DOM.adminClose.addEventListener('click', closeAdminPanel);
@@ -2227,11 +2463,232 @@ function bindEvents() {
   // 新增菜品按钮
   DOM.addDishBtn.addEventListener('click', openAddDishModal);
   
+  // 运维管理
+  if (DOM.opsBtn) {
+    DOM.opsBtn.addEventListener('click', openOpsModal);
+  }
+  if (DOM.opsClose) {
+    DOM.opsClose.addEventListener('click', closeOpsModal);
+  }
+  if (DOM.opsModal) {
+    DOM.opsModal.addEventListener('click', (e) => {
+      if (e.target === DOM.opsModal) {
+        closeOpsModal();
+      }
+    });
+  }
+  
+  // 运维标签切换
+  if (DOM.opsTabs) {
+    DOM.opsTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        switchOpsTab(target);
+      });
+    });
+  }
+  
+  // 数据库测试
+  if (DOM.dbTestBtn) {
+    DOM.dbTestBtn.addEventListener('click', testDatabase);
+  }
+  
+  // 密码重置
+  if (DOM.opsResetPwdBtn) {
+    DOM.opsResetPwdBtn.addEventListener('click', resetUserPassword);
+  }
+  
+  // 接口测试
+  if (DOM.opsApiTestBtn) {
+    DOM.opsApiTestBtn.addEventListener('click', testApi);
+  }
+  
   // 窗口大小变化
   window.addEventListener('resize', () => {
     // 重新初始化移动端滚动条
     initMobileTagsScroll();
   });
+}
+
+// ==================== 运维管理功能 ====================
+
+function openOpsModal() {
+  if (!DOM.opsModal) return;
+  DOM.opsModal.classList.add('active');
+  switchOpsTab('db');
+  loadUserList();
+}
+
+function closeOpsModal() {
+  if (!DOM.opsModal) return;
+  DOM.opsModal.classList.remove('active');
+}
+
+function switchOpsTab(tab) {
+  if (!DOM.opsTabs || !DOM.opsPanels) return;
+  DOM.opsTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  DOM.opsPanels.forEach(p => p.classList.toggle('active', p.id === `ops-${tab}`));
+}
+
+async function testDatabase() {
+  if (!DOM.dbTestBtn) return;
+  DOM.dbTestBtn.disabled = true;
+  DOM.dbTestBtn.querySelector('span:last-child').textContent = '测试中...';
+  
+  try {
+    const data = await apiRequest('/api/ops/db-test', { method: 'POST' });
+    
+    DOM.dbTestResult.style.display = 'block';
+    DOM.dbTestStatus.className = 'result-status success';
+    DOM.dbTestStatus.textContent = '✓ 连接成功';
+    
+    let html = '';
+    if (data.connection_time !== undefined) {
+      html += `<div>数据库: ${data.database || '-'}</div>`;
+      html += `<div>主机: ${data.host || '-'}</div>`;
+      html += `<div>耗时: ${data.connection_time}ms</div>`;
+    }
+    DOM.dbTestBody.innerHTML = html;
+  } catch (e) {
+    DOM.dbTestResult.style.display = 'block';
+    DOM.dbTestStatus.className = 'result-status error';
+    DOM.dbTestStatus.textContent = '✗ 连接失败';
+    DOM.dbTestBody.textContent = e.message || '未知错误';
+  } finally {
+    DOM.dbTestBtn.disabled = false;
+    DOM.dbTestBtn.querySelector('span:last-child').textContent = '测试数据库连接';
+  }
+}
+
+async function loadUserList() {
+  if (!DOM.opsUserSelect) return;
+  
+  try {
+    const data = await apiRequest('/api/ops/users');
+    if (data.success && data.users) {
+      DOM.opsUserSelect.innerHTML = '<option value="">-- 请选择用户 --</option>';
+      data.users.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.username}${u.is_admin ? ' (管理员)' : ''} - ID: ${u.id}`;
+        DOM.opsUserSelect.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error('加载用户列表失败:', e);
+  }
+}
+
+async function resetUserPassword() {
+  if (!DOM.opsResetPwdBtn || !DOM.opsUserSelect || !DOM.opsNewPassword) return;
+  
+  const userId = DOM.opsUserSelect.value;
+  const newPwd = DOM.opsNewPassword.value.trim();
+  
+  if (!userId) {
+    showOpsResult('ops-reset-pwd', false, '请选择要重置密码的用户', '');
+    return;
+  }
+  if (!newPwd) {
+    showOpsResult('ops-reset-pwd', false, '请输入新密码', '');
+    return;
+  }
+  if (newPwd.length < 4) {
+    showOpsResult('ops-reset-pwd', false, '新密码至少需要 4 位', '');
+    return;
+  }
+  
+  DOM.opsResetPwdBtn.disabled = true;
+  DOM.opsResetPwdBtn.querySelector('span:last-child').textContent = '重置中...';
+  
+  try {
+    const data = await apiRequest('/api/ops/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: parseInt(userId), new_password: newPwd })
+    });
+    showOpsResult('ops-reset-pwd', true, '✓ 重置成功', data.message || '');
+    DOM.opsNewPassword.value = '';
+    showToast('密码重置成功');
+  } catch (e) {
+    showOpsResult('ops-reset-pwd', false, '✗ 重置失败', e.message || '未知错误');
+  } finally {
+    DOM.opsResetPwdBtn.disabled = false;
+    DOM.opsResetPwdBtn.querySelector('span:last-child').textContent = '重置密码';
+  }
+}
+
+async function testApi() {
+  if (!DOM.opsApiTestBtn || !DOM.opsApiUrl) return;
+  
+  const url = DOM.opsApiUrl.value.trim();
+  const method = DOM.opsApiMethod.value;
+  const bodyText = DOM.opsApiBody.value.trim();
+  
+  if (!url) {
+    showOpsResult('ops-api', false, '请输入接口地址', '');
+    return;
+  }
+  
+  let body = null;
+  if (bodyText && ['POST', 'PUT', 'PATCH'].includes(method)) {
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      showOpsResult('ops-api', false, '请求体格式错误，必须是有效的 JSON', '');
+      return;
+    }
+  }
+  
+  DOM.opsApiTestBtn.disabled = true;
+  DOM.opsApiTestBtn.querySelector('span:last-child').textContent = '请求中...';
+  
+  try {
+    const payload = { url, method };
+    if (body) payload.body = body;
+    
+    const data = await apiRequest('/api/ops/api-test', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    
+    DOM.opsApiResult.style.display = 'block';
+    DOM.opsApiStatus.className = 'result-status ' + (data.success ? 'success' : 'error');
+    DOM.opsApiStatus.textContent = data.success ? `✓ ${data.status_code}` : '✗ 请求失败';
+    DOM.opsApiElapsed.textContent = data.elapsed ? `${data.elapsed}ms` : '';
+    
+    let resultText = '';
+    if (data.data !== undefined) {
+      resultText = typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2);
+    } else if (data.message) {
+      resultText = data.message;
+    }
+    DOM.opsApiBodyResult.textContent = resultText;
+  } catch (e) {
+    DOM.opsApiResult.style.display = 'block';
+    DOM.opsApiStatus.className = 'result-status error';
+    DOM.opsApiStatus.textContent = '✗ 请求失败';
+    DOM.opsApiElapsed.textContent = '';
+    DOM.opsApiBodyResult.textContent = e.message || '未知错误';
+  } finally {
+    DOM.opsApiTestBtn.disabled = false;
+    DOM.opsApiTestBtn.querySelector('span:last-child').textContent = '发送请求';
+  }
+}
+
+function showOpsResult(prefix, success, statusText, bodyText) {
+  const resultEl = document.getElementById(`${prefix}-result`);
+  const statusEl = document.getElementById(`${prefix}-status`);
+  const bodyEl = document.getElementById(`${prefix}-body`);
+  
+  if (!resultEl || !statusEl) return;
+  
+  resultEl.style.display = 'block';
+  statusEl.className = 'result-status ' + (success ? 'success' : 'error');
+  statusEl.textContent = statusText;
+  
+  if (bodyEl) {
+    bodyEl.textContent = bodyText;
+  }
 }
 
 // ==================== 初始化 ====================
@@ -2255,9 +2712,8 @@ async function initApp() {
           console.log('用户信息已更新:', AppState.currentUser);
         }
       } catch (e) {
-        // 如果后端session已失效（401错误），清除本地存储
         console.log('获取用户信息失败，可能是session已失效:', e.message);
-        if (e.message && e.message.includes('401')) {
+        if (e.status === 401) {
           AppState.currentUser = null;
           localStorage.removeItem('currentUser');
           updateUserUI();
