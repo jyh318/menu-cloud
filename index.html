@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>小贾私房菜</title>
 <!-- 引入中文字体：Noto Serif SC（衬线体，用于标题）和 Noto Sans SC（无衬线体，用于正文） -->
-<link href="https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- 使用预加载+异步加载，避免阻塞页面渲染 -->
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=Noto+Sans+SC:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
 <!-- 引入主样式文件 -->
 <link rel="stylesheet" href="style.css">
 </head>
@@ -120,6 +124,20 @@
         </div>
       </div>
 
+      <!-- 每日推荐：随机一张菜品卡片 -->
+      <div class="daily-recommend" id="daily-recommend" style="display:none">
+        <div class="daily-recommend-header">
+          <span class="daily-recommend-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </span>
+          <span class="daily-recommend-title">每日推荐</span>
+          <span class="daily-recommend-date" id="daily-recommend-date"></span>
+        </div>
+        <div class="daily-recommend-card" id="daily-recommend-card">
+          <!-- 动态渲染推荐菜品 -->
+        </div>
+      </div>
+
       <!-- 菜品卡片网格：数据通过JavaScript从后端 /api/dishes 接口动态加载 -->
       <div class="food-grid" id="food-grid">
         <!-- 加载中提示 -->
@@ -128,11 +146,32 @@
     </main>
   </div>
 
+  <!-- ========== 每日推荐菜品选择弹窗（管理员） ========== -->
+  <div class="modal" id="daily-picker-modal">
+    <div class="modal-content daily-picker-content">
+      <button class="modal-close" id="daily-picker-close">
+        <img src="img/icon/close.png" alt="关闭" width="24" height="24">
+      </button>
+      <h3 class="daily-picker-title">选择每日推荐菜品</h3>
+      <div class="daily-picker-search">
+        <input type="text" id="daily-picker-search" placeholder="搜索菜品名称...">
+        <img src="img/icon/search.png" alt="搜索" class="daily-picker-search-icon">
+      </div>
+      <div class="daily-picker-list" id="daily-picker-list">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- ========== 搜索弹窗 ========== -->
   <div class="search-modal" id="search-modal">
     <div class="search-modal-content">
       <!-- 搜索输入框 -->
       <input type="text" id="search-input" placeholder="搜索菜品、价格或描述..." autofocus>
+      <!-- 清除按钮 -->
+      <button id="search-clear" class="search-clear" style="display:none">
+        <img src="img/icon/清除.png" alt="清除" width="16" height="16">
+      </button>
       <!-- 搜索关闭按钮：使用 img/icon/close.png -->
       <button id="search-close" class="search-close">
         <img src="img/icon/close.png" alt="关闭" width="20" height="20">

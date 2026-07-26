@@ -43,6 +43,7 @@ from routes_dish import register_dish_routes
 from routes_tag import register_tag_routes
 from routes_order import create_order, checkout_order, get_order_list, get_order_detail
 from routes_auth import register_auth_routes
+from routes_daily import register_daily_routes
 
 # ==================== 应用初始化 ====================
 
@@ -109,6 +110,7 @@ def get_receipt_info_route():
 register_dish_routes(app)
 register_tag_routes(app)
 register_auth_routes(app)
+register_daily_routes(app)
 
 # ==================== 应用启动 ====================
 
