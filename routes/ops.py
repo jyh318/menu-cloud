@@ -15,8 +15,8 @@
 """
 
 from flask import jsonify, request, session
-from dataconf import get_db_connection, DB_CONFIG
-from logconfig import log_config
+from dbconfig.database import get_db_connection, DB_CONFIG
+from utils.logger import log_config
 import hashlib
 import time
 import requests as http_requests

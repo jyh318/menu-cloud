@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@file Dataconfig.py
+@file database.py
 @description 数据库配置和缓存管理模块
 @version 1.0.0
 @author Menu Cloud Team
@@ -18,7 +18,7 @@ import pymysql
 import os
 import time
 from dotenv import load_dotenv
-from logconfig import log_config
+from utils.logger import log_config
 
 load_dotenv()
 

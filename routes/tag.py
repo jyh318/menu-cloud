@@ -16,8 +16,8 @@
 
 from flask import jsonify, request
 import pymysql
-from dataconf import get_db_connection, clear_tag_cache, get_tag_caches
-from logconfig import log_config
+from dbconfig.database import get_db_connection, clear_tag_cache, get_tag_caches
+from utils.logger import log_config
 
 logger = log_config()
 

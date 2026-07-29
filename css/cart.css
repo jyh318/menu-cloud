@@ -1,0 +1,70 @@
+/* ===== CART: Floating Cart & Animations ===== */
+/* ===== FLOATING CART ===== */
+.floating-cart {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: var(--accent);
+  border-radius: 50px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(196,93,62,0.3);
+  transition: all 0.3s ease;
+  animation: cartBounce 0.6s 0.8s ease-out both;
+}
+
+.floating-cart:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(196,93,62,0.4);
+}
+
+.floating-cart svg {
+  width: 20px;
+  height: 20px;
+}
+
+.cart-count {
+  background: rgba(255,255,255,0.25);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cardReveal {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes expandWidth {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes cartBounce {
+  0% { opacity: 0; transform: translateY(40px) scale(0.8); }
+  60% { transform: translateY(-4px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}

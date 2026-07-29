@@ -18,8 +18,8 @@
 
 from flask import jsonify, request
 import pymysql
-from dataconf import get_db_connection, get_tag_caches, clear_dish_tags_cache, clear_tag_cache
-from logconfig import log_config
+from dbconfig.database import get_db_connection, get_tag_caches, clear_dish_tags_cache, clear_tag_cache
+from utils.logger import log_config
 
 logger = log_config()
 

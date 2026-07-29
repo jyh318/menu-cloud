@@ -995,15 +995,29 @@ function performSearch(keyword) {
  * @returns {object|null} 菜品对象
  */
 function findDish(dishId) {
-  return AppState.filteredDishes.find(d => d.id === dishId);
+  return AppState.filteredDishes.find(d => d.id === dishId) || AppState.dishes.find(d => d.id === dishId);
 }
 
 /**
  * 显示菜品详情
  * @param {number} dishId - 菜品ID
  */
-function showDishDetail(dishId) {
-  const dish = findDish(dishId);
+async function showDishDetail(dishId) {
+  let dish = findDish(dishId);
+  
+  if (!dish) {
+    try {
+      const resp = await fetch(`/api/dishes/${dishId}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        dish = data;
+      }
+    } catch (e) {
+      console.error('获取菜品详情失败:', e.message);
+      return;
+    }
+  }
+  
   if (!dish) return;
   
   const imageSrc = getDishImage(dish.image);

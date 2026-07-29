@@ -1,0 +1,60 @@
+/* ===== VARIABLES: Reset & CSS Custom Properties ===== */
+/* ===== RESET & VARIABLES ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #faf8f5;
+  --bg-secondary: #f3efe9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fffdfb;
+  --surface: #ece7df;
+  --surface-light: #e0dbd3;
+  --text-primary: #2c2418;
+  --text-secondary: #5c5045;
+  --text-muted: #8a7e72;
+  --accent: #c45d3e;
+  --accent-light: #d4714f;
+  --accent-glow: rgba(196, 93, 62, 0.2);
+  --gold: #b8923e;
+  --gold-dim: rgba(184, 146, 62, 0.1);
+  --green: #5a8a4a;
+  --border: rgba(180, 170, 155, 0.25);
+  --border-strong: rgba(180, 170, 155, 0.45);
+  --shadow-card: 0 2px 12px rgba(80,60,40,0.06), 0 1px 3px rgba(80,60,40,0.04);
+  --shadow-hover: 0 8px 30px rgba(80,60,40,0.1), 0 2px 8px rgba(196,93,62,0.08);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --sidebar-width: 240px;
+  --header-height: 72px;
+  --font-display: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+  --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Subtle warm texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 30%, rgba(184,146,62,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 70%, rgba(196,93,62,0.03) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
