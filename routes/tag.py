@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@file routes_tag.py
+@file tag.py
 @description 标签管理API模块
 @version 1.0.0
 @author Menu Cloud Team

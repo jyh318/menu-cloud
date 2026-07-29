@@ -1,5 +1,5 @@
-/* ===== MODALS: Search, Generic, Daily Picker, Dish Detail ===== */
-/* ===== SEARCH MODAL ===== */
+/* ===== 弹窗：搜索弹窗、通用弹窗、每日推荐选择器、菜品详情弹窗 ===== */
+/* ===== 搜索弹窗 ===== */
 .search-modal {
   display: none;
   position: fixed;

@@ -1,5 +1,5 @@
-/* ===== COMPONENTS: Loading, Lazy Load, Animations, Scrollbar, Modals, OPS ===== */
-/* ===== LOADING ===== */
+/* ===== 组件：加载状态、懒加载、动画、滚动条、各类弹窗、运维 ===== */
+/* ===== 加载状态 ===== */
 .loading {
   grid-column: 1 / -1;
   text-align: center;

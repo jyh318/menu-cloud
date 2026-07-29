@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@file routes_dish.py
+@file dish.py
 @description 菜品管理API模块
 @version 1.0.0
 @author Menu Cloud Team

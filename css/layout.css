@@ -1,5 +1,5 @@
-/* ===== LAYOUT: Header, Mobile Toggle, Main Layout, Sidebar ===== */
-/* ===== HEADER ===== */
+/* ===== 布局：头部、移动端切换、主布局、侧边栏 ===== */
+/* ===== 头部导航 ===== */
 header {
   position: sticky;
   top: 0;
@@ -374,7 +374,7 @@ header {
   color: #fff;
 }
 
-/* Sidebar decorative line */
+/* 侧边栏装饰线 */
 .sidebar-decor {
   margin: 20px 24px;
   height: 1px;

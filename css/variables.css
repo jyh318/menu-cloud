@@ -1,5 +1,5 @@
-/* ===== VARIABLES: Reset & CSS Custom Properties ===== */
-/* ===== RESET & VARIABLES ===== */
+/* ===== 变量：重置样式与CSS自定义属性 ===== */
+/* ===== 重置与变量 ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -47,7 +47,7 @@ body {
   position: relative;
 }
 
-/* Subtle warm texture */
+/* 柔和暖色调纹理 */
 body::before {
   content: '';
   position: fixed;

@@ -1,5 +1,5 @@
-/* ===== RESPONSIVE: Tablet & Mobile Breakpoints ===== */
-/* ===== RESPONSIVE — TABLET ===== */
+/* ===== 响应式：平板与移动端适配 ===== */
+/* ===== 响应式 — 平板端 ===== */
 @media (max-width: 1024px) {
   :root {
     --sidebar-width: 200px;
@@ -120,7 +120,7 @@
     background: var(--bg-primary);
   }
 
-  /* Auto-hide scrollbar */
+  /* 自动隐藏滚动条 */
   .sidebar.scrollbar-hidden {
     scrollbar-width: none;
   }
@@ -218,12 +218,12 @@
     border-bottom-color: var(--accent);
   }
 
-  /* Sub-categories hidden inside the horizontal bar (JS moves them out) */
+  /* 子分类隐藏在横向滚动条内（JS将其移出） */
   .sidebar .sub-categories {
     display: none !important;
   }
 
-  /* Mobile sub-category panel: sits between sidebar and content */
+  /* 移动端子分类面板：位于侧边栏与内容区之间 */
   .mobile-sub-panel {
     display: none;
     width: 100%;

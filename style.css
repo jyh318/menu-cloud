@@ -1,3 +1,8 @@
+/* ========================================
+ * 小贾私房菜 - 主样式入口
+ * 功能：通过@import聚合所有CSS模块
+ * ======================================== */
+
 @import url('css/variables.css');
 @import url('css/layout.css');
 @import url('css/dishes.css');

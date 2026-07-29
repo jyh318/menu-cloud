@@ -1,3 +1,14 @@
+"""
+@file logger.py
+@description 日志配置模块
+@version 1.0.0
+
+功能：
+1. 配置日志系统
+2. 创建按日期命名的日志文件
+3. 提供日志记录器实例
+"""
+
 from datetime import date
 import logging
 import os
@@ -8,6 +19,10 @@ if not os.path.exists('./logs'):
     os.makedirs('./logs')
 
 def log_config():
+    """
+    配置并返回日志记录器
+    返回：配置完成的logging.Logger实例
+    """
     logs = logging.getLogger('app')
     logs.setLevel(logging.DEBUG)
     # 创建文件处理器

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@file routes_daily.py
+@file daily.py
 @description 每日推荐菜品API模块
 @version 1.0.0
 @author Menu Cloud Team

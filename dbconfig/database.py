@@ -27,11 +27,11 @@ logger = log_config()
 # ==================== 数据库配置 ====================
 
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'sh-cynosdbmysql-grp-d2dhhovq.sql.tencentcdb.com'),
-    'port': int(os.getenv('DB_PORT', 23841)),
+    'host': os.getenv('DB_HOST', '127.0.0.1'),
+    'port': int(os.getenv('DB_PORT', 3306)),
     'user': os.getenv('DB_USER', 'menu'),
     'password': os.getenv('DB_PASSWORD', 'menu.123'),
-    'db': os.getenv('DB_NAME', 'room-d0gyj4jwe761aa259'),
+    'db': os.getenv('DB_NAME', 'menu'),
     'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
     'cursorclass': pymysql.cursors.DictCursor,
     'use_unicode': True,

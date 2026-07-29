@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@file routes_auth.py
+@file auth.py
 @description 用户认证API模块
 @version 1.0.0
 @author Menu Cloud Team

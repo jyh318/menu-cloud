@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-@file routes_ops.py
+@file ops.py
 @description 运维管理API模块
 @version 1.0.0
 @author Menu Cloud Team
